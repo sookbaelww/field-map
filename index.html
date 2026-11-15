@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#2563eb">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script>window.STANDALONE=true;window.APP_VERSION="202611160010";
+<script>window.STANDALONE=true;window.APP_VERSION="202611160029";
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 
 <script src="lib/pdf.min.js"></script>
@@ -310,10 +310,11 @@ const IDB={d:null,open(){if(this.d)return this.d;return this.d=new Promise((res,
  put(st,k,v){return this.tx(st,"readwrite",o=>o.put(v,k))},del(st,k){return this.tx(st,"readwrite",o=>o.delete(k))},get(st,k){return this.tx(st,"readonly",o=>o.get(k))},
  async all(st){const d=await this.open();return new Promise((res,rej)=>{const out=[];const t=d.transaction(st);const c=t.objectStore(st).openCursor();c.onsuccess=()=>{const cur=c.result;if(cur){out.push([cur.key,cur.value]);cur.continue()}else res(out)};c.onerror=()=>rej(c.error)})}};
 async function idbSafe(p){try{return await p}catch(e){console.warn(e);toast("이 기기에 저장 실패: "+(e&&e.message||e)+" — 저장 공간을 확인하세요",6000)}}
+const MEMO_COLORS=["#dc2626","#2563eb","#111827"];
 /* ───────── 상태 ───────── */
 const S={db:null,assets:null,dl:null,online:false,
  projects:new Map(),pages:new Map(),marks:new Map(),
- pid:null,pageId:null,tool:"crack",mode:"draw",finger:false,
+ pid:null,pageId:null,tool:"crack",mode:"draw",finger:false,memoColor:"#dc2626",
  view:{s:1,tx:0,ty:0},selId:null,unsubs:[],localUrls:{},editing:null};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -394,7 +395,7 @@ function sortedPages(){return[...S.pages.values()].sort((a,b)=>(a.no&&b.no?natCm
 const pageTitle=pg=>(pg.no?pg.no+" · ":"")+(pg.name||"도면");
 /* 번호 규칙: 기존 손상은 원래 번호 유지, 신규는 그 도면 마지막 번호 다음부터.
    '빼고 번호 당김' 설정이면 보수된 기존 손상을 빼고 1번부터 다시 매김 */
-function numbering(pid){const all=[...S.marks.values()].filter(m=>m.page===pid);
+function numbering(pid){const all=[...S.marks.values()].filter(m=>m.page===pid&&m.origin!=="memo");
  const ex=all.filter(m=>m.origin==="existing").sort((a,b)=>natCmp(a.oldNo||"",b.oldNo||"")||(a.createdAt||0)-(b.createdAt||0));
  const nw=all.filter(m=>m.origin!=="existing").sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)||a.id.localeCompare(b.id));
  const rm=(P()&&P().repairMode)==="remove";const map={};let n=0,max=0;
@@ -416,11 +417,14 @@ if(l.icon)return`<img src="${l.icon}" style="width:40px;height:22px;object-fit:c
 function buildTools(){
  const t=$("tools");let h=`<svg width="0" height="0" style="position:absolute"><defs>${legend().filter(l=>l.g==="area").map(l=>patternDef("ip_"+l.k,l,3)).join("")}</defs></svg>`;
  h+=`<button class="tool" data-mode="pan"><span class="mode">✋</span>이동</button>`;
- h+=`<button class="tool" data-mode="select"><span class="mode">👆</span>선택·수정</button><div class="sep"></div>`;
+ h+=`<button class="tool" data-mode="select"><span class="mode">👆</span>선택·수정</button>`;
+ h+=`<button class="tool" data-mode="memo"><span class="mode">✏️</span>메모펜</button><button class="tool" data-mode="text"><span class="mode">🔤</span>글상자</button>`;
+ h+=`<div style="display:flex;justify-content:center;gap:5px;padding:2px 0" id="memoColors">${MEMO_COLORS.map(c=>`<span data-mc="${c}" style="width:16px;height:16px;border-radius:50%;background:${c};border:2px solid ${c===S.memoColor?"#facc15":"#fff"};box-shadow:0 0 0 1px #9ca3af;cursor:pointer"></span>`).join("")}</div><div class="sep"></div>`;
  legend().forEach(l=>h+=`<button class="tool" data-k="${l.k}">${legendIcon(l)}${l.n}</button>`);
  t.innerHTML=h;
+ t.querySelectorAll("[data-mc]").forEach(d=>d.onclick=()=>{S.memoColor=d.dataset.mc;ls("ins.mc",S.memoColor);if(S.mode!=="memo"&&S.mode!=="text")S.mode="memo";buildTools()});
  t.querySelectorAll(".tool").forEach(b=>b.onclick=()=>{if(b.dataset.mode){S.mode=b.dataset.mode}else{S.mode="draw";S.tool=b.dataset.k}ls("ins.tool",S.tool);renderTools();
-  hint(S.mode==="draw"?`${lg(S.tool).n}: ${lg(S.tool).g==="line"?"선으로 그리세요":lg(S.tool).g==="area"?"영역을 둘러 그리세요":"위치를 톡 찍으세요"} (한 번 톡 = 점 표시)`:S.mode==="select"?"손상을 눌러 수정 · 번호 동그라미는 끌어서 이동":"끌어서 이동, 두 손가락으로 확대")});
+  hint(S.mode==="draw"?`${lg(S.tool).n}: ${lg(S.tool).g==="line"?"선으로 그리세요":lg(S.tool).g==="area"?"영역을 둘러 그리세요":"위치를 톡 찍으세요"} (한 번 톡 = 점 표시)`:S.mode==="select"?"손상을 눌러 수정 · 번호 동그라미는 끌어서 이동":S.mode==="memo"?"자유 메모 (손상 목록에는 안 들어가요) · 꾹 누르면 삭제":S.mode==="text"?"글자를 넣을 곳을 톡 찍으세요 · 글상자를 누르면 수정":"끌어서 이동, 두 손가락으로 확대")});
  renderTools();
 }
 function renderTools(){$("tools").querySelectorAll(".tool").forEach(b=>b.classList.toggle("on",b.dataset.mode?S.mode===b.dataset.mode:(S.mode==="draw"&&S.tool===b.dataset.k)))}
@@ -492,7 +496,12 @@ function repairMarkSvg(x,y){const s=repairStyle();const da=s.dash?' stroke-dasha
 function existingSvg(m,no,sel){const p=m.pts||[];if(p.length<2)return"";
  if(m.deleted)return`<g data-id="${m.id}"><g data-badge="${m.id}" style="cursor:pointer"><circle cx="${p[0]}" cy="${p[1]}" r="7.5" fill="rgba(255,255,255,0.01)" stroke="#9ca3af" stroke-width="1.2"/><path d="M${p[0]-6} ${p[1]-6}L${p[0]+6} ${p[1]+6}M${p[0]+6} ${p[1]-6}L${p[0]-6} ${p[1]+6}" stroke="#9ca3af" stroke-width="1.2"/></g></g>`;const[c,t]=CHK[m.check||""]||CHK[""];const x=p[0],y=p[1];
  return`<g data-id="${m.id}"><g data-badge="${m.id}" style="cursor:pointer"><circle cx="${x}" cy="${y}" r="7.5" fill="${sel?"rgba(253,224,71,.45)":"rgba(255,255,255,0.01)"}" stroke="${c}" stroke-width="1.6"${m.check?"":' stroke-dasharray="2.5 1.5"'}/>${no&&String(no)!==String(m.oldNo)?`<text x="${x+8}" y="${y-6}" font-size="5.5" fill="${c}" font-weight="700" font-family="Arial">→${no}</text>`:""}${m.check?`<text x="${x}" y="${y+12.5}" font-size="4.2" fill="${c}" text-anchor="middle">${t}</text>`:""}</g>${m.check==="보수됨"?repairMarkSvg(x,y):""}</g>`}
+function memoSvg(m,sel){const p=m.pts||[];if(p.length<2)return"";const c=m.color||"#dc2626";
+ if(m.kind==="text"){const fs=m.size||8;const lines=String(m.text||"").split(/\n/);return`<g data-id="${m.id}" data-memo="1"><text x="${p[0]}" y="${p[1]}" font-size="${fs}" fill="${c}" font-family="'Malgun Gothic','Apple SD Gothic Neo',sans-serif" font-weight="600" ${sel?'stroke="#facc15" stroke-width="2.5" paint-order="stroke"':""}>${lines.map((t,i)=>`<tspan x="${p[0]}" dy="${i?fs*1.25:0}">${esc(t)}</tspan>`).join("")}</text></g>`}
+ return`<g data-id="${m.id}" data-memo="1"><polyline points="${ptsStr(p)}" fill="none" stroke="transparent" stroke-width="8"/>${sel?`<polyline points="${ptsStr(p)}" fill="none" stroke="#facc15" stroke-width="4" stroke-opacity=".6"/>`:""}<polyline points="${ptsStr(p)}" fill="none" stroke="${c}" stroke-width="${m.w||1}" stroke-linecap="round" stroke-linejoin="round"/></g>`}
+const pageMemos=pid=>[...S.marks.values()].filter(m=>m.page===pid&&m.origin==="memo");
 function markSvg(m,no,sel){
+ if(m.origin==="memo")return memoSvg(m,sel);
  if(m.origin==="existing")return existingSvg(m,no,sel);
  const l=lg(m.type);const pts=m.pts||[];let g="";
  const sw=1.1;
@@ -510,7 +519,7 @@ function nearestPt(pts,x,y){let best=[pts[0],pts[1]],bd=1e18;for(let i=0;i<pts.l
 function renderMarks(){
  const pg=curPage(),ov=$("ov");if(!pg){ov.innerHTML="";return}
  let h=`<defs>${legend().filter(l=>l.g==="area").map(l=>patternDef("p_"+l.k,l,4)).join("")}</defs>`;
- const nb=numbering(pg.id);nb.order.forEach(m=>h+=markSvg(m,nb.map[m.id]||"",m.id===S.selId));
+ const nb=numbering(pg.id);nb.order.forEach(m=>h+=markSvg(m,nb.map[m.id]||"",m.id===S.selId));pageMemos(pg.id).forEach(m=>h+=memoSvg(m,m.id===S.selId));
  h+=`<g id="live"></g>`;ov.innerHTML=h;
 }
 function renderList(){
@@ -549,7 +558,7 @@ view.addEventListener("pointerdown",e=>{
  const drawer=isPen||(isMouse&&e.button===0)||(isTouch&&S.finger);
  hideDelPop();
  {const hitEl=badgeEl||markEl;const hm=hitEl&&S.marks.get(hitEl.dataset.badge||hitEl.dataset.id);
-  if(hm&&hm.origin!=="existing"&&(drawer||isTouch)){clearTimeout(lp&&lp.t);lp={id:hm.id,pid:e.pointerId,x:e.clientX,y:e.clientY,fired:false};
+  if(hm&&hm.origin!=="existing"&&S.mode!=="text"&&(drawer||isTouch)){clearTimeout(lp&&lp.t);lp={id:hm.id,pid:e.pointerId,x:e.clientX,y:e.clientY,fired:false};
    lp.t=setTimeout(()=>{if(!lp||lp.moved)return;lp.fired=true;if(stroke&&stroke.pid===lp.pid){stroke=null;$("live")&&($("live").innerHTML="")}
     if(badgeDrag&&badgeDrag.pid===lp.pid)badgeDrag=null;if(tapSel&&tapSel.pid===lp.pid)tapSel=null;if(ptrs.has(lp.pid)){ptrs.delete(lp.pid);pan=null}
     showDelPop(lp.id,lp.x,lp.y)},600)}}
@@ -559,7 +568,8 @@ view.addEventListener("pointerdown",e=>{
  if(drawer&&cropMode&&ptrs.size===0){const p=toPage(e.clientX,e.clientY);stroke={pid:e.pointerId,pts:[p],sx:e.clientX,sy:e.clientY};drawLive();return}
  if(drawer&&badgeEl&&(S.mode==="select"||S.mode==="draw")){const m=S.marks.get(badgeEl.dataset.badge);badgeDrag={id:m.id,sx:e.clientX,sy:e.clientY,moved:false,pid:e.pointerId};return}
  if(drawer&&S.mode==="select"){tapSel={id:markEl?markEl.dataset.id:null,x:e.clientX,y:e.clientY,pid:e.pointerId};return}
- if(drawer&&(S.mode==="draw"||scaleMode)&&ptrs.size===0){const p=toPage(e.clientX,e.clientY);stroke={pid:e.pointerId,pts:[p],sx:e.clientX,sy:e.clientY};drawLive();return}
+ if(drawer&&S.mode==="text"&&ptrs.size===0){const hitT=markEl&&S.marks.get(markEl.dataset.id);const p=toPage(e.clientX,e.clientY);setTimeout(()=>editMemoText(hitT&&hitT.origin==="memo"&&hitT.kind==="text"?hitT:null,p),0);return}
+ if(drawer&&(S.mode==="draw"||S.mode==="memo"||scaleMode)&&ptrs.size===0){const p=toPage(e.clientX,e.clientY);stroke={pid:e.pointerId,pts:[p],sx:e.clientX,sy:e.clientY};drawLive();return}
  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
  if(ptrs.size===1){pan={x:e.clientX,y:e.clientY,tx:S.view.tx,ty:S.view.ty,id:e.pointerId}}
  if(ptrs.size===2){pan=null;const[a,b]=[...ptrs.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),mx:(a.x+b.x)/2,my:(a.y+b.y)/2,v:{...S.view}}}
@@ -588,7 +598,7 @@ view.addEventListener("wheel",e=>{e.preventDefault();if(!curPage())return;const 
 view.addEventListener("contextmenu",e=>e.preventDefault());
 ["gesturestart","gesturechange"].forEach(t=>document.addEventListener(t,e=>e.preventDefault()));
 const r1=n=>Math.round(n*10)/10;
-function drawLive(){const lv=$("live");if(!lv||!stroke)return;const l=scaleMode?{c:"#f59e0b"}:lg(S.tool);
+function drawLive(){const lv=$("live");if(!lv||!stroke)return;const l=scaleMode?{c:"#f59e0b"}:S.mode==="memo"?{c:S.memoColor,g:"line"}:lg(S.tool);
  if(!scaleMode&&!cropMode&&l.g==="area"&&stroke.pts.length>2&&isDiagonal(stroke.pts)){const a=stroke.pts[0],b=stroke.pts[stroke.pts.length-1];lv.innerHTML=`<rect x="${Math.min(a[0],b[0])}" y="${Math.min(a[1],b[1])}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="url(#p_${l.k})" stroke="${l.c}" stroke-width="1" opacity=".9"/>`;return}
  if(cropMode){const a=stroke.pts[0],b=stroke.pts[stroke.pts.length-1];lv.innerHTML=`<rect x="${Math.min(a[0],b[0])}" y="${Math.min(a[1],b[1])}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="rgba(37,99,235,.12)" stroke="#2563eb" stroke-width="1" stroke-dasharray="3 2"/>`;return}
  lv.innerHTML=`<polyline points="${stroke.pts.map(p=>p.join(",")).join(" ")}" fill="none" stroke="${l.c}" stroke-width="${1.4/Math.max(0.5,S.view.s/2)}" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>`}
@@ -602,6 +612,8 @@ function isDiagonal(pts){if(pts.length<2)return false;const xs=pts.map(p=>p[0]),
 async function finishStroke(st){
  const pg=curPage();if(!pg)return;
  if(cropMode){const cb=cropMode;cropMode=null;const a=st.pts[0],b=st.pts[st.pts.length-1];const box=[Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.max(a[0],b[0]),Math.max(a[1],b[1])];if(box[2]-box[0]<2||box[3]-box[1]<2){toast("너무 작아요. 다시 시도하세요");return}cb(box);return}
+ if(S.mode==="memo"&&!scaleMode){const eps=Math.max(0.2,0.5/S.view.s);let pts=st.pts.length<2?[st.pts[0],[st.pts[0][0]+0.5,st.pts[0][1]+0.5]]:rdp(st.pts,eps);
+  await saveMark({id:uid(),page:pg.id,origin:"memo",kind:"pen",pts:pts.flatMap(q=>[r1(q[0]),r1(q[1])]),color:S.memoColor,w:Math.max(0.6,1.4/Math.max(1,S.view.s/2)),author:ls("ins.author")||"",createdAt:Date.now()});return}
  const moved=Math.hypot(st.pts[st.pts.length-1][0]-st.pts[0][0],st.pts[st.pts.length-1][1]-st.pts[0][1])*S.view.s;
  let span=0;for(let i=1;i<st.pts.length;i++)span=Math.max(span,Math.hypot(st.pts[i][0]-st.pts[0][0],st.pts[i][1]-st.pts[0][1]));
  const isTap=st.pts.length<3&&moved<6||span*S.view.s<6;
@@ -651,7 +663,7 @@ function refreshDesc(k){const set=new Set(lg(k).presets);S.marks.forEach(m=>{if(
 function refreshDatalists(){const set=new Set(LOCS);S.marks.forEach(m=>m.loc&&set.add(m.loc));$("dlLoc").innerHTML=[...set].map(v=>`<option value="${esc(v)}">`).join("")}
 function updQty(){const m={w:$("fW").value,l:$("fL").value,b:$("fB").value,cnt:$("fCnt").value};const q=qtyOf(m);$("fQty").textContent=q==null?"-":q+" "+unitOf(m)}
 function openMark(m,isNew){
- if(!m)return;S.editing={...m,_new:!!isNew};
+ if(!m)return;if(m.origin==="memo"){if(m.kind==="text")editMemoText(m);else{S.selId=m.id;renderMarks();hint("메모는 꾹 누르면 삭제할 수 있어요")}return}S.editing={...m,_new:!!isNew};
  $("fNum").textContent=isNew?numbering(m.page).next:(markNo(m)||"-");$("fTitle").textContent=isNew?"새 손상":"손상 수정";
  if(![...$("fType").options].some(o=>o.value===m.type)){buildTypeSelect()}$("fType").value=m.type;markTypeGrid();refreshDesc(m.type);refreshDatalists();
  $("fStatus").querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.s===m.status));
@@ -856,6 +868,7 @@ function drawTableCanvas(ctx,k,box,cols,rows){const L=tableLayout(box,cols,rows)
  ctx.restore();return rows.length>Math.floor((L.H-L.titleH-L.headH)/L.rh)}
 function overlaySvg(pg,W,H){const nb=numbering(pg.id);let h=`<defs>${legend().filter(l=>l.g==="area").map(l=>patternDef("p_"+l.k,l,4)).join("")}</defs>`;
  nb.order.forEach(m=>{if(m.origin==="existing"){if(m.deleted)return;if(m.check==="보수됨"&&m.pts&&m.pts.length>=2)h+=repairMarkSvg(m.pts[0],m.pts[1]);const no=nb.map[m.id];if(no&&String(no)!==String(m.oldNo)&&m.pts&&m.pts.length>=2)h+=`<text x="${m.pts[0]+8}" y="${m.pts[1]-6}" font-size="6" fill="#1d4ed8" font-weight="700" font-family="Arial">→${no}</text>`;return}if(nb.map[m.id]&&m.pts&&m.pts.length>=2)h+=markSvg(m,nb.map[m.id],false)});
+ pageMemos(pg.id).forEach(m=>h+=memoSvg(m,false));
  return`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${pg.w} ${pg.h}">${h}</svg>`}
 async function renderFinal(pg,maxDim){const bm=await pageBitmap(pg);const k0=Math.min(1,(maxDim||4000)/Math.max(bm.width,bm.height));
  const cv=document.createElement("canvas");cv.width=Math.round(bm.width*k0);cv.height=Math.round(bm.height*k0);const ctx=cv.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,cv.width,cv.height);ctx.drawImage(bm,0,0,cv.width,cv.height);bm.close&&bm.close();
@@ -878,7 +891,7 @@ function dxfStr(s){let o="";for(const ch of String(s)){const c=ch.codePointAt(0)
 function buildDxf(pages){
  const MM=25.4/72;const L=[];const ent=[];
  const LGS=legend();const layName=(l,i)=>"DMG_"+String(i+1).padStart(2,"0")+(/^[a-z]+$/.test(l.k)?"_"+l.k.toUpperCase():"");
- const layers=[["0",7],["FRAME",8],["NUMBER",7],["LEADER",7],["LABEL",9],["DMG_ETC",7],["EXISTING",30],["TABLE",7]].concat(LGS.map((l,i)=>[layName(l,i),l.aci||7]));
+ const layers=[["0",7],["FRAME",8],["NUMBER",7],["LEADER",7],["LABEL",9],["DMG_ETC",7],["EXISTING",30],["TABLE",7],["MEMO",1]].concat(LGS.map((l,i)=>[layName(l,i),l.aci||7]));
  const lay=k=>{const i=LGS.findIndex(l=>l.k===k);return i<0?"DMG_ETC":layName(LGS[i],i)};
  const g=(...a)=>{for(let i=0;i<a.length;i+=2)ent.push(String(a[i]),String(a[i+1]))};
  const f=n=>(Math.round(n*1000)/1000).toString();
@@ -899,6 +912,7 @@ function buildDxf(pages){
    const lab=[m.desc,m.w?m.w+"mm":"",num(m.l)!=null?(m.l+(num(m.b)!=null?"x"+m.b:"")+"m"):"",m.photo?"사진"+m.photo:""].filter(Boolean).join(" ");
    g(0,"TEXT",8,"LABEL",10,f(ox+bx*MM+6*MM),20,Y(by+1),30,0,40,f(2*MM),1,dxfStr(lab));
   });
+  pageMemos(pg.id).forEach(m=>{const p=m.pts||[];if(p.length<2)return;if(m.kind==="text")String(m.text||"").split(/\n/).forEach((t,i)=>g(0,"TEXT",8,"MEMO",10,X(p[0]),20,Y(p[1]+i*(m.size||8)*1.25),30,0,40,f((m.size||8)*MM*0.8),1,dxfStr(t)));else poly("MEMO",p,false)});
   if(pg.ai&&pg.ai.tableBox){const bb=pg.ai.tableBox.map(v=>v/1000);const box=[bb[0]*pg.w,bb[1]*pg.h,bb[2]*pg.w,bb[3]*pg.h];const t=pageTable(pg);const L=tableLayout(box,t.cols,t.rows);
    const ln=(xa,ya,xb,yb)=>g(0,"LINE",8,"TABLE",10,X(xa),20,Y(ya),30,0,11,X(xb),21,Y(yb),31,0);
    const tx=(x,y,str,hgt,wmax)=>{const s2=String(str??"");if(!s2)return;let h2=hgt*MM;const est=[...s2].reduce((a,ch)=>a+(/[\u3131-\uD79D]/.test(ch)?1:0.6),0)*h2;if(est>wmax*MM*0.92)h2*=wmax*MM*0.92/est;g(0,"TEXT",8,"TABLE",10,X(x),20,Y(y),30,0,40,f(h2),1,dxfStr(s2),72,1,73,2,11,X(x),21,Y(y),31,0)};
@@ -1222,8 +1236,8 @@ $("bStd").onclick=openStd;$("sdGo").onclick=runStd;
 /* 꾹 눌러 삭제 (신규 손상) */
 function showDelPop(id,x,y){const m=S.marks.get(id);if(!m)return;S.selId=id;renderMarks();renderList();const p=$("delPop");p.style.left=x+"px";p.style.top=y+"px";p.style.display="block";p.dataset.id=id}
 function hideDelPop(){const p=$("delPop");if(p.style.display!=="none"){p.style.display="none"}}
-$("delBtn").onclick=async e=>{e.stopPropagation();const id=$("delPop").dataset.id;hideDelPop();const m=S.marks.get(id);if(!m)return;const no=markNo(m);S.selId=null;await delMark(id);
- S.lastDel=m;$("undoTxt").textContent=`${no}번 ${m.desc||""} 삭제됨`;$("undoBar").style.display="flex";clearTimeout(S.undoT);S.undoT=setTimeout(()=>$("undoBar").style.display="none",10000)};
+$("delBtn").onclick=async e=>{e.stopPropagation();const id=$("delPop").dataset.id;hideDelPop();const m=S.marks.get(id);if(!m)return;const no=m.origin==="memo"?"":markNo(m);S.selId=null;await delMark(id);
+ S.lastDel=m;$("undoTxt").textContent=m.origin==="memo"?"메모 삭제됨":`${no}번 ${m.desc||""} 삭제됨`;$("undoBar").style.display="flex";clearTimeout(S.undoT);S.undoT=setTimeout(()=>$("undoBar").style.display="none",10000)};
 $("undoBtn").onclick=async()=>{const m=S.lastDel;$("undoBar").style.display="none";if(!m)return;S.lastDel=null;await saveMark(m);toast("되돌렸어요")};
 document.addEventListener("pointerdown",e=>{if(!e.target.closest("#delPop")&&!e.target.closest("#view"))hideDelPop()},true);
 $("bReload").onclick=async()=>{if(!LOCAL&&!S.online&&S.marks.size&&!await confirmBox("새로고침","공유 저장소에 연결되지 않은 상태라 새로고침하면 이 기기의 작업이 사라질 수 있어요. 먼저 내보내기 → 작업파일 백업을 하세요. 그래도 새로고침할까요?"))return;
@@ -1253,9 +1267,14 @@ async function importPackage(file){
 $("ePkg").onclick=exportPackage;
 $("iPkg").onclick=()=>$("pkgIn").click();$("bPkgProj").onclick=()=>{closeM("mProj");$("pkgIn").click()};
 $("pkgIn").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;closeM("mExport");await importPackage(f)};
+async function editMemoText(m,p){const pg=curPage();if(!pg)return;
+ const v=await ask(m?"글상자 수정":"글상자","넣을 글자를 입력하세요 (줄바꿈은 ' / ' 로). 비우면 "+(m?"삭제돼요":"취소돼요"),m?String(m.text||"").replace(/\n/g," / "):"");
+ if(v==null)return;const text=v.split(/\s*\/\s*/).join("\n").trim();
+ if(!text){if(m){await delMark(m.id);toast("글상자를 삭제했어요")}return}
+ if(m)await saveMark({...m,text,updatedAt:Date.now()});else await saveMark({id:uid(),page:pg.id,origin:"memo",kind:"text",pts:[r1(p[0]),r1(p[1])],text,color:S.memoColor,size:Math.max(5,Math.min(14,9/Math.max(0.6,S.view.s/1.5))),author:ls("ins.author")||"",createdAt:Date.now()})}
 /* ───────── 시작 ───────── */
 function init(){
- const t=ls("ins.tool");if(t&&legend().some(l=>l.k===t))S.tool=t;
+ const t=ls("ins.tool");if(t&&legend().some(l=>l.k===t))S.tool=t;const mc=ls("ins.mc");if(mc&&MEMO_COLORS.includes(mc))S.memoColor=mc;
  buildTools();buildForm();refreshDatalists();
  if(window.innerWidth<1000)$("side").classList.add("hide");
  window.addEventListener("resize",()=>applyView());
