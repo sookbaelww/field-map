@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#2563eb">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script>window.STANDALONE=true;window.APP_VERSION="202611161433";
+<script>window.STANDALONE=true;window.APP_VERSION="202611161436";
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 
 <script src="lib/pdf.min.js"></script>
@@ -461,7 +461,7 @@ function buildTools(){
  h+=`<button class="tool" data-mode="pan"><span class="mode">✋</span>이동</button>`;
  h+=`<button class="tool" data-mode="select"><span class="mode">👆</span>선택·수정</button>`;
  h+=`<button class="tool" data-mode="zone"><span class="mode">🧩</span>부재구역</button>`;
- h+=`<button class="tool" data-mode="memo"><span class="mode">✏️</span>메모펜</button><button class="tool" data-mode="text"><span class="mode">🔤</span>글상자</button>`;
+ h+=`<button class="tool" data-mode="memo"><span class="mode">✏️</span>메모펜</button><button class="tool" data-mode="text"><span class="mode">🔤</span>글상자</button><button class="tool" data-mode="erase"><span class="mode">🧹</span>범위 지우기</button>`;
  h+=`<div style="display:flex;justify-content:center;gap:5px;padding:2px 0" id="memoColors">${MEMO_COLORS.map(c=>`<span data-mc="${c}" style="width:16px;height:16px;border-radius:50%;background:${c};border:2px solid ${c===S.memoColor?"#facc15":"#fff"};box-shadow:0 0 0 1px #9ca3af;cursor:pointer"></span>`).join("")}</div><div class="sep"></div>`;
  const pg=curPage();const mem=pg?pageMemberList(pg):[];const sel=S.memberSel;
  h+=`<div class="muted" style="font-size:10px;text-align:center;margin:2px 0">부재</div><button class="tool" data-mem="" style="${!sel?"border-color:var(--acc);background:#e8efff":""};font-size:11px">전체 범례</button>`;
@@ -478,7 +478,7 @@ function buildTools(){
   buildTools();hint(S.memberSel?`부재: ${S.memberSel.loc} — 이 부재의 손상만 보여요. 그리면 손상위치에 '${S.memberSel.loc}'이(가) 들어가요`:"전체 범례 — 손상위치는 부재 구역으로 자동 입력",3500)});
  t.querySelectorAll("[data-mc]").forEach(d=>d.onclick=()=>{S.memoColor=d.dataset.mc;ls("ins.mc",S.memoColor);if(S.mode!=="memo"&&S.mode!=="text")S.mode="memo";buildTools()});
  t.querySelectorAll(".tool:not([data-mem])").forEach(b=>b.onclick=()=>{if(b.dataset.mode){S.mode=b.dataset.mode}else{S.mode="draw";S.tool=b.dataset.k;S.toolDesc=b.dataset.dn||null}ls("ins.tool",S.tool);renderTools();renderMarks();zoneBar();
-  hint(S.mode==="draw"?`${lg(S.tool).n}: ${lg(S.tool).g==="line"?"선으로 그리세요":lg(S.tool).g==="area"?"영역을 둘러 그리세요":"위치를 톡 찍으세요"} (한 번 톡 = 점 표시)`:S.mode==="select"?"손상을 눌러 수정 · 번호 동그라미는 끌어서 이동":S.mode==="zone"?"▤ 띠로 나누기로 테두리를 감싸고, 선을 끌어 맞추세요 · 칸을 누르면 이름":S.mode==="memo"?"자유 메모 (손상 목록에는 안 들어가요) · 꾹 누르면 삭제":S.mode==="text"?"글자를 넣을 곳을 톡 찍으세요 · 글상자를 누르면 수정":"끌어서 이동, 두 손가락으로 확대")});
+  hint(S.mode==="draw"?`${lg(S.tool).n}: ${lg(S.tool).g==="line"?"선으로 그리세요":lg(S.tool).g==="area"?"영역을 둘러 그리세요":"위치를 톡 찍으세요"} (한 번 톡 = 점 표시)`:S.mode==="select"?"손상을 눌러 수정 · 번호 동그라미는 끌어서 이동":S.mode==="erase"?"지울 범위를 대각선으로 감싸세요 (신규 손상·메모만, 기존 손상은 제외)":S.mode==="zone"?"▤ 띠로 나누기로 테두리를 감싸고, 선을 끌어 맞추세요 · 칸을 누르면 이름":S.mode==="memo"?"자유 메모 (손상 목록에는 안 들어가요) · 꾹 누르면 삭제":S.mode==="text"?"글자를 넣을 곳을 톡 찍으세요 · 글상자를 누르면 수정":"끌어서 이동, 두 손가락으로 확대")});
  renderTools();
 }
 function renderTools(){$("tools").querySelectorAll(".tool:not([data-mem])").forEach(b=>b.classList.toggle("on",b.dataset.mode?S.mode===b.dataset.mode:(S.mode==="draw"&&S.tool===b.dataset.k&&(!b.dataset.dn||b.dataset.dn===S.toolDesc))))}
@@ -576,7 +576,7 @@ function nearestPt(pts,x,y){let best=[pts[0],pts[1]],bd=1e18;for(let i=0;i<pts.l
 function renderMarks(){
  const pg=curPage(),ov=$("ov");if(!pg){ov.innerHTML="";return}
  let h=`<defs>${defsLegend().filter(l=>l.g==="area").map(l=>patternDef("p_"+String(l.k).replace(/[^\w-]/g,"_"),l,4)).join("")}</defs>`;
- const zm=S.mode==="zone";if(zm)h+=`<g opacity=".22" style="pointer-events:none">`;const nb=numbering(pg.id);nb.order.forEach(m=>h+=markSvg(m,nb.map[m.id]||"",m.id===S.selId));pageMemos(pg.id).forEach(m=>h+=memoSvg(m,m.id===S.selId));if(zm)h+="</g>";
+ const zm=S.mode==="zone";if(zm)h+=`<g opacity=".22" style="pointer-events:none">`;const nb=numbering(pg.id);nb.order.forEach(m=>h+=markSvg(m,nb.map[m.id]||"",m.id===S.selId||!!(S.selSet&&S.selSet.has(m.id))));pageMemos(pg.id).forEach(m=>h+=memoSvg(m,m.id===S.selId||!!(S.selSet&&S.selSet.has(m.id))));if(zm)h+="</g>";
  if(S.mode==="zone")h+=zonesSvg(pg);else h=h.replace("</defs>","</defs>"+zonesSvg(pg));
  h+=`<g id="live"></g>`;ov.innerHTML=h;
 }
@@ -618,7 +618,7 @@ view.addEventListener("pointerdown",e=>{
  const drawer=isPen||(isMouse&&e.button===0)||(isTouch&&S.finger);
  hideDelPop();
  {const hitEl=badgeEl||markEl;const hm=hitEl&&S.marks.get(hitEl.dataset.badge||hitEl.dataset.id);
-  if(hm&&hm.origin!=="existing"&&S.mode!=="text"&&S.mode!=="zone"&&(drawer||isTouch)){clearTimeout(lp&&lp.t);lp={id:hm.id,pid:e.pointerId,x:e.clientX,y:e.clientY,fired:false};
+  if(hm&&hm.origin!=="existing"&&S.mode!=="text"&&S.mode!=="zone"&&S.mode!=="erase"&&(drawer||isTouch)){clearTimeout(lp&&lp.t);lp={id:hm.id,pid:e.pointerId,x:e.clientX,y:e.clientY,fired:false};
    lp.t=setTimeout(()=>{if(!lp||lp.moved)return;lp.fired=true;if(stroke&&stroke.pid===lp.pid){stroke=null;$("live")&&($("live").innerHTML="")}
     if(badgeDrag&&badgeDrag.pid===lp.pid)badgeDrag=null;if(tapSel&&tapSel.pid===lp.pid)tapSel=null;if(ptrs.has(lp.pid)){ptrs.delete(lp.pid);pan=null}
     showDelPop(lp.id,lp.x,lp.y)},600)}}
@@ -633,7 +633,7 @@ view.addEventListener("pointerdown",e=>{
    if(ce.dataset.cut){const[b,dir,i]=ce.dataset.cut.split(":");S.zsel={t:"cut",band:b,dir,i:+i}}else if(ce.dataset.handle||ce.dataset.zone){const id=(ce.dataset.handle||ce.dataset.zone).split(":")[0];S.zsel={t:"zone",id}}
    renderMarks();renderZonePanel();return}}
  if(drawer&&S.mode==="text"&&ptrs.size===0){const hitT=markEl&&S.marks.get(markEl.dataset.id);const p=toPage(e.clientX,e.clientY);setTimeout(()=>editMemoText(hitT&&hitT.origin==="memo"&&hitT.kind==="text"?hitT:null,p),0);return}
- if(drawer&&(S.mode==="draw"||S.mode==="memo"||S.mode==="zone"||scaleMode)&&ptrs.size===0){const p=toPage(e.clientX,e.clientY);stroke={pid:e.pointerId,pts:[p],sx:e.clientX,sy:e.clientY};drawLive();return}
+ if(drawer&&(S.mode==="draw"||S.mode==="memo"||S.mode==="zone"||S.mode==="erase"||scaleMode)&&ptrs.size===0){const p=toPage(e.clientX,e.clientY);stroke={pid:e.pointerId,pts:[p],sx:e.clientX,sy:e.clientY};drawLive();return}
  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
  if(ptrs.size===1){pan={x:e.clientX,y:e.clientY,tx:S.view.tx,ty:S.view.ty,id:e.pointerId}}
  if(ptrs.size===2){pan=null;const[a,b]=[...ptrs.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),mx:(a.x+b.x)/2,my:(a.y+b.y)/2,v:{...S.view}}}
@@ -676,7 +676,7 @@ view.addEventListener("contextmenu",e=>e.preventDefault());
 const r1=n=>Math.round(n*10)/10;
 function drawLive(){const lv=$("live");if(!lv||!stroke)return;const l=scaleMode?{c:"#f59e0b"}:S.mode==="memo"?{c:S.memoColor,g:"line"}:lg(S.tool);
  if(!scaleMode&&!cropMode&&l.g==="area"&&stroke.pts.length>2&&isDiagonal(stroke.pts)){const a=stroke.pts[0],b=stroke.pts[stroke.pts.length-1];lv.innerHTML=`<rect x="${Math.min(a[0],b[0])}" y="${Math.min(a[1],b[1])}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="url(#p_${String(l.k).replace(/[^\w-]/g,"_")})" stroke="${l.c}" stroke-width="1" opacity=".9"/>`;return}
- if(cropMode||S.mode==="zone"){const a=stroke.pts[0],b=stroke.pts[stroke.pts.length-1];lv.innerHTML=`<rect x="${Math.min(a[0],b[0])}" y="${Math.min(a[1],b[1])}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="rgba(37,99,235,.12)" stroke="#2563eb" stroke-width="1" stroke-dasharray="3 2"/>`;return}
+ if(cropMode||S.mode==="zone"||S.mode==="erase"){const a=stroke.pts[0],b=stroke.pts[stroke.pts.length-1];lv.innerHTML=`<rect x="${Math.min(a[0],b[0])}" y="${Math.min(a[1],b[1])}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="rgba(37,99,235,.12)" stroke="#2563eb" stroke-width="1" stroke-dasharray="3 2"/>`;return}
  lv.innerHTML=`<polyline points="${stroke.pts.map(p=>p.join(",")).join(" ")}" fill="none" stroke="${l.c}" stroke-width="${1.4/Math.max(0.5,S.view.s/2)}" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>`}
 function rdp(pts,eps){if(pts.length<3)return pts;let dmax=0,idx=0;const[a,b]=[pts[0],pts[pts.length-1]];const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1e-9;
  for(let i=1;i<pts.length-1;i++){const d=Math.abs(dy*pts[i][0]-dx*pts[i][1]+b[0]*a[1]-b[1]*a[0])/L;if(d>dmax){dmax=d;idx=i}}
@@ -695,6 +695,11 @@ async function finishStroke(st){
   if(S.zTool==="band"){const ns=(cur.memberNames||[]);const names={"0:0":ns[0]||"난간및연석","1:0":ns.length>2?ns[1]:(cur.member||"교면포장"),"2:0":ns.length>2?ns[ns.length-1]:"난간및연석"};
    await savePageZ(cur,{bands:(cur.bands||[]).concat([{id:"B"+uid().slice(0,8),box,hs:[0.1,0.9],vs:[],names}])});S.zTool="box";zoneBar();hint("가로선을 끌어 띠 폭을 맞추고, 칸을 톡 눌러 이름을 정하세요",5000);return}
   const v=await nameAsk(cur,"작은 구역 이름","");if(v&&v.trim()){await savePageZ(cur,{zones:(cur.zones||[]).concat([{id:"Z"+uid().slice(0,8),name:v.trim(),box}])})}return}
+ if(S.mode==="erase"&&!scaleMode){const a=st.pts[0],b=st.pts[st.pts.length-1];const x0=Math.min(a[0],b[0]),x1=Math.max(a[0],b[0]),y0=Math.min(a[1],b[1]),y1=Math.max(a[1],b[1]);
+  const inside=m=>{const all=(m.pts||[]).concat(...(m.parts||[]));if(all.length<2)return false;const[cx,cy]=centroid(all);return cx>=x0&&cx<=x1&&cy>=y0&&cy<=y1};
+  const ids=[...S.marks.values()].filter(m=>m.page===pg.id&&m.origin!=="existing"&&inside(m)).map(m=>m.id);
+  if(!ids.length){toast("그 범위에 지울 신규 손상·메모가 없어요");return}
+  const r=view.getBoundingClientRect();showDelPop(ids,r.left+S.view.tx+(x0+x1)/2*S.view.s,r.top+S.view.ty+y0*S.view.s);return}
  if(S.multi&&S.mode==="draw"&&!scaleMode){const m=S.marks.get(S.multi);if(!m||m.page!==pg.id){stopMulti();toast("다른 도면이라 묶음 그리기를 끝냈어요");return}
   const tap=st.pts.length<3&&Math.hypot(st.pts[st.pts.length-1][0]-st.pts[0][0],st.pts[st.pts.length-1][1]-st.pts[0][1])*S.view.s<6;let part;
   if(m.geom==="point"||tap){part=[r1(st.pts[0][0]),r1(st.pts[0][1])]}
@@ -1332,11 +1337,14 @@ $("sdType").querySelectorAll("button").forEach(b=>b.onclick=()=>{$("sdType").que
 $("bStd").onclick=openStd;$("sdGo").onclick=runStd;
 
 /* 꾹 눌러 삭제 (신규 손상) */
-function showDelPop(id,x,y){const m=S.marks.get(id);if(!m)return;S.selId=id;renderMarks();renderList();const p=$("delPop");p.style.left=x+"px";p.style.top=y+"px";p.style.display="block";p.dataset.id=id}
-function hideDelPop(){const p=$("delPop");if(p.style.display!=="none"){p.style.display="none"}}
-$("delBtn").onclick=async e=>{e.stopPropagation();const id=$("delPop").dataset.id;hideDelPop();const m=S.marks.get(id);if(!m)return;const no=m.origin==="memo"?"":markNo(m);S.selId=null;await delMark(id);
- S.lastDel=m;$("undoTxt").textContent=m.origin==="memo"?"메모 삭제됨":`${no}번 ${m.desc||""} 삭제됨`;$("undoBar").style.display="flex";clearTimeout(S.undoT);S.undoT=setTimeout(()=>$("undoBar").style.display="none",10000)};
-$("undoBtn").onclick=async()=>{const m=S.lastDel;$("undoBar").style.display="none";if(!m)return;S.lastDel=null;await saveMark(m);toast("되돌렸어요")};
+function showDelPop(ids,x,y){ids=[].concat(ids).filter(id=>S.marks.has(id));if(!ids.length)return;S.selSet=new Set(ids);S.selId=ids.length===1?ids[0]:null;renderMarks();renderList();
+ const p=$("delPop");p.style.left=x+"px";p.style.top=y+"px";p.style.display="block";p.dataset.ids=ids.join(",");$("delBtn").textContent=ids.length>1?`🗑 ${ids.length}개 삭제`:"🗑 삭제"}
+function hideDelPop(){const p=$("delPop");if(p.style.display!=="none"){p.style.display="none";if(S.selSet){S.selSet=null;renderMarks()}}}
+$("delBtn").onclick=async e=>{e.stopPropagation();const ids=($("delPop").dataset.ids||"").split(",").filter(Boolean);$("delPop").style.display="none";S.selSet=null;
+ const ms=ids.map(id=>S.marks.get(id)).filter(Boolean);if(!ms.length)return;const first=ms[0];const no=first.origin==="memo"?"":markNo(first);S.selId=null;
+ for(const m of ms)await delMark(m.id);S.lastDel=ms;
+ $("undoTxt").textContent=ms.length>1?`${ms.length}개 삭제됨`:(first.origin==="memo"?"메모 삭제됨":`${no}번 ${first.desc||""} 삭제됨`);$("undoBar").style.display="flex";clearTimeout(S.undoT);S.undoT=setTimeout(()=>$("undoBar").style.display="none",10000)};
+$("undoBtn").onclick=async()=>{const ms=S.lastDel;$("undoBar").style.display="none";if(!ms)return;S.lastDel=null;for(const m of [].concat(ms))await saveMark(m);toast(`되돌렸어요${[].concat(ms).length>1?` (${[].concat(ms).length}개)`:""}`)};
 document.addEventListener("pointerdown",e=>{if(!e.target.closest("#delPop")&&!e.target.closest("#view"))hideDelPop()},true);
 $("bReload").onclick=async()=>{if(!LOCAL&&!S.online&&S.marks.size&&!await confirmBox("새로고침","공유 저장소에 연결되지 않은 상태라 새로고침하면 이 기기의 작업이 사라질 수 있어요. 먼저 내보내기 → 작업파일 백업을 하세요. 그래도 새로고침할까요?"))return;
  try{location.reload()}catch(e){toast("새로고침하지 못했어요. 앱 창을 닫았다가 다시 열어주세요",5000)}};
