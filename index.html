@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="gate.js"></script>
-<script>window.STANDALONE=true;window.APP_VERSION="202611161647";
+<script>window.STANDALONE=true;window.APP_VERSION="202611161704";
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 
 <script src="lib/pdf.min.js"></script>
@@ -1183,9 +1183,17 @@ const POS_PROMPT=`이 이미지는 외관조사망도입니다. 도면(그림) �
 function matchType(desc){const n=t=>String(t||"").replace(/[\s·,.()\-\/]/g,"");const d=n(desc);const L=legend();let best=null,bl=0;
  L.forEach(l=>{String(l.n).split(/[·,\/]|\s및\s/).concat([l.n]).forEach(part=>{const q=n(part);if(q&&d.includes(q)&&q.length>bl){best=l;bl=q.length}})});
  return best?best.k:((L.find(l=>l.k==="etc")||L[L.length-1]).k)}
+/* 판독 제외 번호: "3, 7, 10~12" → Set("3","7","10","11","12") */
+function parseNoSet(t){const set=new Set();String(t||"").split(/[,\s]+/).forEach(x=>{const m=x.match(/^(\d+)\s*[~\-]\s*(\d+)$/);if(m){let a=+m[1],b=+m[2];if(a>b)[a,b]=[b,a];for(let i=a;i<=b&&i-a<500;i++)set.add(String(i))}else{const d=x.replace(/\D/g,"");if(d)set.add(String(+d))}});return set}
+function exclOf(pg){const t=(pg&&pg.excludeNos!=null&&pg.excludeNos!=="")?pg.excludeNos:((P()||{}).excludeNos||"");return parseNoSet(t)}
+async function askExclude(scope,pg){const cur=scope==="page"?((pg&&pg.excludeNos)||((P()||{}).excludeNos)||""):((P()||{}).excludeNos||"");
+ const v=await ask("판독에서 뺄 번호",(scope==="page"?"이 도면":"모든 도면")+"의 물량표에서 기존 손상으로 잡지 않을 번호를 적으세요. 예: 3, 7, 10~12  (비우면 전부 읽어요)",cur);
+ if(v==null)return false;const t=v.trim();
+ if(scope==="page"){await savePage({...S.pages.get(pg.id),excludeNos:t})}else{await saveProject({...P(),excludeNos:t})}
+ return true}
 async function readExisting(ids){
  if(!aiReady()){toast("이 화면에서는 AI 판독을 쓸 수 없어요",4000);return}
- let i=0,done=0,fails=0,added=0,none=0;const tot=ids.length;progress(`기존 손상 판독 0/${tot}`,0);
+ let i=0,done=0,fails=0,added=0,none=0,skipped=0;const tot=ids.length;progress(`기존 손상 판독 0/${tot}`,0);
  const work=async id=>{try{let pg=S.pages.get(id);if(!pg||pg.isDrawing===false){done++;return}
    const bm=await pageBitmap(pg);
    if(!(pg.ai&&pg.ai.tableBox)){const r0=await aiJson(PAGE_PROMPT,await cropBlob(bm,0,0,bm.width,bm.height,1568));pg={...S.pages.get(id)};pg.ai={...(pg.ai||{}),tableBox:validBox(r0.tableBox)?r0.tableBox:null,legendBox:(pg.ai&&pg.ai.legendBox)||(validBox(r0.legendBox)?r0.legendBox:null)};await savePage(pg)}
@@ -1198,8 +1206,9 @@ async function readExisting(ids){
    const get=(r,k)=>{const ix=F[k];return(typeof ix==="number"&&ix>=0&&r[ix]!=null)?String(r[ix]).trim():""};
    for(const m of [...S.marks.values()].filter(m=>m.page===id&&m.origin==="existing"))await delMark(m.id);
    await savePage({...S.pages.get(id),tableCols:cols,tableFields:F});
-   let k=0;const used=new Set();
+   let k=0;const used=new Set();const ex=exclOf(S.pages.get(id));
    for(const r of rows){if(!Array.isArray(r))continue;const no=get(r,"no"),desc=get(r,"desc");if(!no&&!desc)continue;
+    if(ex.size&&no.replace(/\D/g,"")&&ex.has(String(+no.replace(/\D/g,"")))){skipped++;continue}
     const ps=pos.find((q,qi)=>!used.has(qi)&&String(q.no).replace(/\D/g,"")===no.replace(/\D/g,"")&&no.replace(/\D/g,"")!=="");let pts=[];
     if(ps&&isFinite(ps.x)&&isFinite(ps.y)){used.add(pos.indexOf(ps));pts=[r1(ps.x/1000*pg.w),r1(ps.y/1000*pg.h)]}
     const st=get(r,"status");
@@ -1208,13 +1217,13 @@ async function readExisting(ids){
   done++;progress(`기존 손상 판독 ${done}/${tot}`,done/tot)};
  await Promise.all([0,1].map(async()=>{while(i<ids.length)await work(ids[i++])}));
  progress(null);renderMarks();renderList();renderPageList();
- toast(`기존 손상 ${added}건을 읽었어요${none?` · 물량표 없는 도면 ${none}장`:""}${fails?` · 실패 ${fails}장`:""}. 위치가 빠진 건 목록에서 눌러 '위치 지정'하세요`,7000);
+ toast(`기존 손상 ${added}건을 읽었어요${skipped?` · 제외한 번호 ${skipped}건`:""}${none?` · 물량표 없는 도면 ${none}장`:""}${fails?` · 실패 ${fails}장`:""}. 위치가 빠진 건 목록에서 눌러 '위치 지정'하세요`,7000);
 }
 $("bExistAll").onclick=async()=>{const ids=sortedPages().filter(p=>p.isDrawing!==false).map(p=>p.id);if(!ids.length)return;
  const has=[...S.marks.values()].some(m=>m.origin==="existing");
- if(!await confirmBox("기존 손상 판독",`도면 ${ids.length}장의 손상물량표를 AI가 읽어 기존 손상 목록을 만듭니다.${has?" 이미 읽어 둔 기존 손상(현장 확인 내용 포함)은 새로 덮어씁니다.":""} 장당 수십 초 걸릴 수 있어요.`))return;closeM("mPages");readExisting(ids)};
+ if(!await confirmBox("기존 손상 판독",`도면 ${ids.length}장의 손상물량표를 AI가 읽어 기존 손상 목록을 만듭니다.${has?" 이미 읽어 둔 기존 손상(현장 확인 내용 포함)은 새로 덮어씁니다.":""} 장당 수십 초 걸릴 수 있어요.`))return;if(!await askExclude("all"))return;closeM("mPages");readExisting(ids)};
 $("bExistOne").onclick=async()=>{const pg=curPage();if(!pg)return;const has=pageMarks(pg.id).some(m=>m.origin==="existing");
- if(has&&!await confirmBox("기존 손상 다시 판독","이 도면의 기존 손상을 다시 읽습니다. 현장 확인 내용이 지워집니다."))return;readExisting([pg.id])};
+ if(has&&!await confirmBox("기존 손상 다시 판독","이 도면의 기존 손상을 다시 읽습니다. 현장 확인 내용이 지워집니다."))return;if(!await askExclude("page",pg))return;readExisting([pg.id])};
 $("repMode").querySelectorAll("button").forEach(b=>b.onclick=async()=>{const p=P();if(!p)return;await saveProject({...p,repairMode:b.dataset.r});renderPageList();renderMarks();renderList()});
 
 /* ───────── 표준 외관조사망도 생성 (망도 없는 시설물용) ───────── */
