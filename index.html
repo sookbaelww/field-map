@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="gate.js"></script>
-<script>window.STANDALONE=true;window.APP_VERSION="202611161621";
+<script>window.STANDALONE=true;window.APP_VERSION="202611161647";
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 
 <script src="lib/pdf.min.js"></script>
@@ -163,8 +163,8 @@ table.dl tr{cursor:pointer}
 <div class="modal center" id="mPages"><div class="sheet">
   <h2>도면</h2>
   <div class="plist" id="pageList"></div>
-  <div class="row" style="margin-top:6px"><button class="btn pri" id="bImport">＋ 도면 불러오기 (PDF·이미지)</button><button class="btn pri" id="bStd">＋ 표준 망도 만들기</button><button class="btn" id="bReread">AI로 도면명·번호·범례 다시 읽기</button><button class="btn" id="bExistAll">AI로 기존 손상(물량표) 읽기</button><input type="file" id="fileIn" accept="application/pdf,image/*" multiple hidden></div>
-  <div class="row" style="margin-top:10px"><span class="muted">보수된 기존 손상</span><div class="seg" id="repMode" style="flex:0 0 auto"><button data-r="keep">목록에 남김</button><button data-r="remove">빼고 번호 당김</button></div></div>
+  <div class="row" style="margin-top:6px;flex-wrap:wrap"><button class="btn pri" id="bImport">＋ 도면 불러오기 (PDF·이미지)</button><button class="btn pri" id="bStd">＋ 표준 망도 만들기</button><button class="btn" id="bReread">AI로 도면명·번호·범례 다시 읽기</button><button class="btn" id="bExistAll">AI로 기존 손상(물량표) 읽기</button><input type="file" id="fileIn" accept="application/pdf,image/*" multiple hidden></div>
+  <div class="row" style="margin-top:10px"><span class="muted">보수된 기존 손상</span><div class="seg" id="repMode" style="flex:0 0 auto;white-space:nowrap"><button data-r="keep">목록에 남김</button><button data-r="remove">빼고 번호 당김</button></div></div>
   <div id="impProg" style="display:none"><div class="muted" id="impText"></div><div class="prog"><i id="impBar"></i></div></div>
   <div class="actions"><div class="sp"></div><button class="btn" data-close>닫기</button></div>
 </div></div>

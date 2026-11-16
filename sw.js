@@ -1,5 +1,5 @@
 // 오프라인용: 앱 파일을 기기에 저장해 두고, 인터넷이 되면 새 버전을 받아온다
-const CACHE="insmap-202611161621";
+const CACHE="insmap-202611161647";
 const FILES=["./","index.html","manifest.webmanifest","icon-192.png","icon-512.png","gate.js","lib/pdf.min.js","lib/pdf.worker.min.js","lib/xlsx.full.min.js","lib/jszip.min.js","lib/jspdf.umd.min.js"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()))});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
