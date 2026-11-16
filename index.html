@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#2563eb">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script>window.STANDALONE=true;window.APP_VERSION="202611161436";
+<script>window.STANDALONE=true;window.APP_VERSION="202611161443";
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 
 <script src="lib/pdf.min.js"></script>
@@ -114,6 +114,7 @@ table.dl tr{cursor:pointer}
     <div id="content"><img id="pimg" alt=""><svg id="ov" xmlns="http://www.w3.org/2000/svg"></svg></div>
     <div id="empty"></div>
     <div id="hint"></div>
+    <div id="eraseBar" style="position:absolute;left:50%;bottom:64px;transform:translateX(-50%);display:none;gap:8px;align-items:center;z-index:6;background:#111827;color:#fff;border-radius:12px;padding:6px 8px 6px 14px;font-size:14px;white-space:nowrap"><span id="eraseTxt"></span><button class="btn" id="eraseClr" style="padding:6px 10px">선택 해제</button><button class="btn" id="eraseDel" style="padding:6px 12px;background:#dc2626;border-color:#dc2626;color:#fff;font-weight:700">🗑 삭제</button></div>
     <div id="multiBar" style="position:absolute;left:50%;top:10px;transform:translateX(-50%);display:none;gap:8px;align-items:center;z-index:6;background:#111827;color:#fff;border-radius:12px;padding:6px 8px 6px 14px;font-size:14px"><span id="multiTxt"></span><button class="btn" id="multiUndo" style="padding:6px 10px">마지막 지우기</button><button class="btn" id="multiDone" style="padding:6px 12px;background:#fde047;border-color:#fde047;color:#111827;font-weight:700">완료</button></div>
     <div id="zoneBar" style="position:absolute;left:10px;top:10px;display:none;gap:6px;flex-wrap:wrap;z-index:5"><button class="btn" id="zBand">▤ 띠로 나누기</button><button class="btn" id="zBox">□ 작은 구역</button><button class="btn" id="zAi">🤖 부재 이름 읽기</button><button class="btn" id="zAiAll">🤖 전체 도면</button><button class="btn" id="zCopy">같은 부재 도면에 복사</button><button class="btn dng" id="zClear">구역 지우기</button><button class="btn pri" id="zDone">완료</button></div>
   </div>
@@ -477,8 +478,8 @@ function buildTools(){
    if(S.memberSel){const ts=toolsFor(m);if(ts.length){S.mode="draw";S.tool=ts[0].k;S.toolDesc=ts[0].n}}}
   buildTools();hint(S.memberSel?`부재: ${S.memberSel.loc} — 이 부재의 손상만 보여요. 그리면 손상위치에 '${S.memberSel.loc}'이(가) 들어가요`:"전체 범례 — 손상위치는 부재 구역으로 자동 입력",3500)});
  t.querySelectorAll("[data-mc]").forEach(d=>d.onclick=()=>{S.memoColor=d.dataset.mc;ls("ins.mc",S.memoColor);if(S.mode!=="memo"&&S.mode!=="text")S.mode="memo";buildTools()});
- t.querySelectorAll(".tool:not([data-mem])").forEach(b=>b.onclick=()=>{if(b.dataset.mode){S.mode=b.dataset.mode}else{S.mode="draw";S.tool=b.dataset.k;S.toolDesc=b.dataset.dn||null}ls("ins.tool",S.tool);renderTools();renderMarks();zoneBar();
-  hint(S.mode==="draw"?`${lg(S.tool).n}: ${lg(S.tool).g==="line"?"선으로 그리세요":lg(S.tool).g==="area"?"영역을 둘러 그리세요":"위치를 톡 찍으세요"} (한 번 톡 = 점 표시)`:S.mode==="select"?"손상을 눌러 수정 · 번호 동그라미는 끌어서 이동":S.mode==="erase"?"지울 범위를 대각선으로 감싸세요 (신규 손상·메모만, 기존 손상은 제외)":S.mode==="zone"?"▤ 띠로 나누기로 테두리를 감싸고, 선을 끌어 맞추세요 · 칸을 누르면 이름":S.mode==="memo"?"자유 메모 (손상 목록에는 안 들어가요) · 꾹 누르면 삭제":S.mode==="text"?"글자를 넣을 곳을 톡 찍으세요 · 글상자를 누르면 수정":"끌어서 이동, 두 손가락으로 확대")});
+ t.querySelectorAll(".tool:not([data-mem])").forEach(b=>b.onclick=()=>{if(b.dataset.mode){S.mode=b.dataset.mode}else{S.mode="draw";S.tool=b.dataset.k;S.toolDesc=b.dataset.dn||null}ls("ins.tool",S.tool);if(S.mode!=="erase"){S.selSet=null}renderTools();renderMarks();zoneBar();eraseUpd();
+  hint(S.mode==="draw"?`${lg(S.tool).n}: ${lg(S.tool).g==="line"?"선으로 그리세요":lg(S.tool).g==="area"?"영역을 둘러 그리세요":"위치를 톡 찍으세요"} (한 번 톡 = 점 표시)`:S.mode==="select"?"손상을 눌러 수정 · 번호 동그라미는 끌어서 이동":S.mode==="erase"?"번호·메모를 콕콕 눌러 고르거나 범위를 대각선으로 감싸세요 (기존 손상은 제외) · 다 골랐으면 위의 🗑 삭제":S.mode==="zone"?"▤ 띠로 나누기로 테두리를 감싸고, 선을 끌어 맞추세요 · 칸을 누르면 이름":S.mode==="memo"?"자유 메모 (손상 목록에는 안 들어가요) · 꾹 누르면 삭제":S.mode==="text"?"글자를 넣을 곳을 톡 찍으세요 · 글상자를 누르면 수정":"끌어서 이동, 두 손가락으로 확대")});
  renderTools();
 }
 function renderTools(){$("tools").querySelectorAll(".tool:not([data-mem])").forEach(b=>b.classList.toggle("on",b.dataset.mode?S.mode===b.dataset.mode:(S.mode==="draw"&&S.tool===b.dataset.k&&(!b.dataset.dn||b.dataset.dn===S.toolDesc))))}
@@ -587,13 +588,13 @@ function renderList(){
  const nb=numbering(pg.id),ms=nb.order;const nEx=ms.filter(m=>m.origin==="existing").length;$("listCount").textContent=`${ms.length}건`+(nEx?` (기존 ${nEx} · 확인 ${ms.filter(m=>m.origin==="existing"&&m.check).length})`:"");
  let h=`<table class="dl"><tr><th>번호</th><th>손상내용</th><th>규격</th><th>물량</th><th>사진</th></tr>`;
  ms.forEach((m,i)=>{const q=qtyOf(m),u=unitOf(m);const dim=[m.w?m.w+"mm":"",num(m.l)!=null?m.l:"",num(m.b)!=null?"×"+m.b:""].join(" ").trim();
-  h+=`<tr data-id="${m.id}" class="${m.id===S.selId?"sel":""}"><td><span class="num" style="border-color:${m.origin==="existing"?(CHK[m.check||""]||CHK[""])[0]:lg(m.type).c}${nb.map[m.id]?"":";opacity:.4"}">${esc(nb.map[m.id]||"-")}</span></td><td>${esc(m.desc||lg(m.type)?.n)}${m.dupOf&&nb.map[m.dupOf]?` <span class="muted">↔${esc(nb.map[m.dupOf])}번 중복</span>`:""}${m.origin==="existing"?` <span style="font-size:11px;color:${(CHK[m.check||""]||CHK[""])[0]}">[${m.deleted?"삭제됨":(m.check||"미확인")}${m.pts&&m.pts.length?"":"·위치없음"}]</span>`:""}<div class="muted">${esc(m.status||"")} · ${esc(m.loc||"")}${m.span?" · "+esc(m.span):""}</div></td><td>${esc(dim)}${m.cnt&&m.cnt!=1?`<div class="muted">${esc(m.cnt)}개소</div>`:""}</td><td>${q==null?"":q+" "+u}</td><td>${esc(m.photo||"")}</td></tr>`});
+  h+=`<tr data-id="${m.id}" class="${m.id===S.selId||(S.selSet&&S.selSet.has(m.id))?"sel":""}"><td><span class="num" style="border-color:${m.origin==="existing"?(CHK[m.check||""]||CHK[""])[0]:lg(m.type).c}${nb.map[m.id]?"":";opacity:.4"}">${esc(nb.map[m.id]||"-")}</span></td><td>${esc(m.desc||lg(m.type)?.n)}${m.dupOf&&nb.map[m.dupOf]?` <span class="muted">↔${esc(nb.map[m.dupOf])}번 중복</span>`:""}${m.origin==="existing"?` <span style="font-size:11px;color:${(CHK[m.check||""]||CHK[""])[0]}">[${m.deleted?"삭제됨":(m.check||"미확인")}${m.pts&&m.pts.length?"":"·위치없음"}]</span>`:""}<div class="muted">${esc(m.status||"")} · ${esc(m.loc||"")}${m.span?" · "+esc(m.span):""}</div></td><td>${esc(dim)}${m.cnt&&m.cnt!=1?`<div class="muted">${esc(m.cnt)}개소</div>`:""}</td><td>${q==null?"":q+" "+u}</td><td>${esc(m.photo||"")}</td></tr>`});
  h+=`</table>`;if(!ms.length)h=`<div class="muted" style="padding:12px">왼쪽 범례를 고르고 도면에 그리면 여기에 쌓입니다.</div>`;
  el.innerHTML=h;
  el.querySelectorAll("tr[data-id]").forEach(tr=>{const m0=S.marks.get(tr.dataset.id);if(m0&&m0.origin!=="existing"){let t=null,sx=0,sy=0;
   tr.onpointerdown=ev=>{sx=ev.clientX;sy=ev.clientY;tr._lp=false;clearTimeout(t);t=setTimeout(()=>{tr._lp=true;const r=tr.getBoundingClientRect();showDelPop(tr.dataset.id,r.left+r.width/2,r.top+r.height/2+10)},600)};
   tr.onpointermove=ev=>{if(Math.hypot(ev.clientX-sx,ev.clientY-sy)>8)clearTimeout(t)};tr.onpointerup=tr.onpointercancel=()=>clearTimeout(t);tr.oncontextmenu=ev=>ev.preventDefault()}});
- el.querySelectorAll("tr[data-id]").forEach(tr=>tr.onclick=()=>{if(tr._lp){tr._lp=false;return}const id=tr.dataset.id,m=S.marks.get(id);if(!m)return;
+ el.querySelectorAll("tr[data-id]").forEach(tr=>tr.onclick=()=>{if(tr._lp){tr._lp=false;return}const id=tr.dataset.id,m=S.marks.get(id);if(!m)return;if(S.mode==="erase"){eraseToggle(id);return}
   const hasPos=m.pts&&m.pts.length>=2;
   if(S.selId===id||!hasPos){S.selId=id;renderMarks();renderList();openMark(m);if(!hasPos&&m.origin==="existing")hint("위치가 없는 손상이에요. '위치 지정'으로 도면에 찍어주세요",4000);return}
   S.selId=id;renderMarks();renderList();focusMark(id);hint("한 번 더 누르면 상세 입력",1800)});
@@ -607,16 +608,18 @@ function focusMark(id){const m=S.marks.get(id);if(!m||!m.pts||m.pts.length<2)ret
  const c=$("content");c.style.transition="transform .35s ease";S.view={s,tx:v.width/2-cx*s,ty:v.height/2-cy*s};applyView();setTimeout(()=>{c.style.transition=""},400)}
 
 /* ───────── 그리기·이동 (Apple Pencil / 손가락 / 마우스) ───────── */
-const view=$("view");const ptrs=new Map();let stroke=null,pinch=null,pan=null,badgeDrag=null,tapSel=null,scaleMode=false,cropMode=null,pinMode=null,lp=null;
+const view=$("view");const ptrs=new Map();let eraseTap=null,stroke=null,pinch=null,pan=null,badgeDrag=null,tapSel=null,scaleMode=false,cropMode=null,pinMode=null,lp=null;
 function toPage(cx,cy){const r=view.getBoundingClientRect();return[(cx-r.left-S.view.tx)/S.view.s,(cy-r.top-S.view.ty)/S.view.s]}
 view.addEventListener("pointerdown",e=>{
- if(e.target.closest&&e.target.closest("#zoneBar,#multiBar"))return;
+ if(e.target.closest&&e.target.closest("#zoneBar,#multiBar,#eraseBar"))return;
  if(!curPage())return;
  const isPen=e.pointerType==="pen",isMouse=e.pointerType==="mouse",isTouch=e.pointerType==="touch";
  if(stroke&&isTouch)return; // 손바닥 무시
  const badgeEl=e.target.closest&&e.target.closest("[data-badge]");const markEl=e.target.closest&&e.target.closest("[data-id]");
  const drawer=isPen||(isMouse&&e.button===0)||(isTouch&&S.finger);
- hideDelPop();
+ if(S.mode!=="erase")hideDelPop();
+ if(drawer&&S.mode==="erase"&&ptrs.size===0){const hitE=badgeEl||markEl;const hmE=hitE&&S.marks.get(hitE.dataset.badge||hitE.dataset.id);
+  if(hmE){view.setPointerCapture(e.pointerId);eraseTap={id:hmE.id,pid:e.pointerId,x:e.clientX,y:e.clientY};return}}
  {const hitEl=badgeEl||markEl;const hm=hitEl&&S.marks.get(hitEl.dataset.badge||hitEl.dataset.id);
   if(hm&&hm.origin!=="existing"&&S.mode!=="text"&&S.mode!=="zone"&&S.mode!=="erase"&&(drawer||isTouch)){clearTimeout(lp&&lp.t);lp={id:hm.id,pid:e.pointerId,x:e.clientX,y:e.clientY,fired:false};
    lp.t=setTimeout(()=>{if(!lp||lp.moved)return;lp.fired=true;if(stroke&&stroke.pid===lp.pid){stroke=null;$("live")&&($("live").innerHTML="")}
@@ -646,6 +649,7 @@ view.addEventListener("pointermove",e=>{
   if(d.el.handle){const k=+d.el.handle.split(":")[1];nb=ob.slice();if(k===0||k===3)nb[0]=p[0];else nb[2]=p[0];if(k<2)nb[1]=p[1];else nb[3]=p[1];nb=[Math.min(nb[0],nb[2]),Math.min(nb[1],nb[3]),Math.max(nb[0],nb[2]),Math.max(nb[1],nb[3])]}
   else{const dx=p[0]-d.p0[0],dy=p[1]-d.p0[1];nb=[ob[0]+dx,ob[1]+dy,ob[2]+dx,ob[3]+dy]}
   nb=nb.map(r1);S.pages.set(pg.id,{...pg,zones:pg.zones.map(q=>q.id===zid?{...q,box:nb}:q)});renderMarks();return}
+ if(eraseTap&&e.pointerId===eraseTap.pid){if(Math.hypot(e.clientX-eraseTap.x,e.clientY-eraseTap.y)>12){const t=eraseTap;eraseTap=null;stroke={pid:t.pid,pts:[toPage(t.x,t.y),toPage(e.clientX,e.clientY)],sx:t.x,sy:t.y};drawLive()}return}
  if(lp&&e.pointerId===lp.pid&&!lp.moved&&Math.hypot(e.clientX-lp.x,e.clientY-lp.y)>8){lp.moved=true;clearTimeout(lp.t)}
  if(lp&&lp.fired&&e.pointerId===lp.pid)return;
  if(stroke&&e.pointerId===stroke.pid){const evs=e.getCoalescedEvents?e.getCoalescedEvents():[e];evs.forEach(ev=>{const p=toPage(ev.clientX,ev.clientY);const l=stroke.pts[stroke.pts.length-1];if(Math.hypot(p[0]-l[0],p[1]-l[1])*S.view.s>1.5)stroke.pts.push(p)});drawLive();return}
@@ -662,6 +666,7 @@ function endPtr(e){
   if(d.el.cell){const[b,r,c]=d.el.cell.split(":");S.zsel={t:"cell",band:b,r:+r,c:+c};renderMarks();renderZonePanel();renameCell(pg,b,+r,+c);return}
   if(d.el.zone){const z=(pg.zones||[]).find(q=>q.id===d.el.zone);if(z)renameZone(pg,z);return}
   renderZonePanel();return}
+ if(eraseTap&&e.pointerId===eraseTap.pid){const t=eraseTap;eraseTap=null;if(Math.hypot(e.clientX-t.x,e.clientY-t.y)<12)eraseToggle(t.id);return}
  if(lp&&e.pointerId===lp.pid){clearTimeout(lp.t);const f=lp.fired;lp=null;if(f){ptrs.delete(e.pointerId);return}}
  if(stroke&&e.pointerId===stroke.pid){const st=stroke;stroke=null;$("live")&&($("live").innerHTML="");finishStroke(st);return}
  if(badgeDrag&&e.pointerId===badgeDrag.pid){const bd=badgeDrag;badgeDrag=null;const m=S.marks.get(bd.id);if(!m)return;if(bd.moved&&bd.pos){saveMark(m.origin==="existing"?{...m,pts:bd.pos}:{...m,badge:bd.pos})}else{S.selId=m.id;renderMarks();renderList();openMark(m)}return}
@@ -698,8 +703,9 @@ async function finishStroke(st){
  if(S.mode==="erase"&&!scaleMode){const a=st.pts[0],b=st.pts[st.pts.length-1];const x0=Math.min(a[0],b[0]),x1=Math.max(a[0],b[0]),y0=Math.min(a[1],b[1]),y1=Math.max(a[1],b[1]);
   const inside=m=>{const all=(m.pts||[]).concat(...(m.parts||[]));if(all.length<2)return false;const[cx,cy]=centroid(all);return cx>=x0&&cx<=x1&&cy>=y0&&cy<=y1};
   const ids=[...S.marks.values()].filter(m=>m.page===pg.id&&m.origin!=="existing"&&inside(m)).map(m=>m.id);
+  if((x1-x0)*S.view.s<12&&(y1-y0)*S.view.s<12)return;
   if(!ids.length){toast("그 범위에 지울 신규 손상·메모가 없어요");return}
-  const r=view.getBoundingClientRect();showDelPop(ids,r.left+S.view.tx+(x0+x1)/2*S.view.s,r.top+S.view.ty+y0*S.view.s);return}
+  const sel=S.selSet||new Set();ids.forEach(id=>sel.add(id));S.selSet=sel;eraseUpd();return}
  if(S.multi&&S.mode==="draw"&&!scaleMode){const m=S.marks.get(S.multi);if(!m||m.page!==pg.id){stopMulti();toast("다른 도면이라 묶음 그리기를 끝냈어요");return}
   const tap=st.pts.length<3&&Math.hypot(st.pts[st.pts.length-1][0]-st.pts[0][0],st.pts[st.pts.length-1][1]-st.pts[0][1])*S.view.s<6;let part;
   if(m.geom==="point"||tap){part=[r1(st.pts[0][0]),r1(st.pts[0][1])]}
@@ -1336,6 +1342,14 @@ $("sdType").querySelectorAll("button").forEach(b=>b.onclick=()=>{$("sdType").que
 ["sdForm","sdN","sdL","sdB","sdG","sdPier","sdHa","sdHp","sdUD","sdTName","sdTL","sdTSta","sdTSeg","sdTP","sdTJ"].forEach(id=>{$(id).oninput=$(id).onchange=stdRefresh});
 $("bStd").onclick=openStd;$("sdGo").onclick=runStd;
 
+/* 범위 지우기: 콕콕 선택 + 범위 선택 */
+function eraseToggle(id){const m=S.marks.get(id);if(!m)return;if(m.origin==="existing"){toast("기존 손상은 지우기에서 제외돼요 (눌러서 보수·삭제로 처리)");return}
+ const sel=S.selSet||new Set();sel.has(id)?sel.delete(id):sel.add(id);S.selSet=sel;eraseUpd()}
+function eraseUpd(){const b=$("eraseBar");if(S.mode!=="erase"){b.style.display="none";return}
+ if(S.selSet)for(const id of [...S.selSet])if(!S.marks.has(id))S.selSet.delete(id);const n=S.selSet?S.selSet.size:0;
+ b.style.display="flex";$("eraseTxt").textContent=n?`${n}개 선택됨`:"콕콕 또는 범위로 선택";$("eraseDel").textContent=n?`🗑 ${n}개 삭제`:"🗑 삭제";$("eraseDel").disabled=!n;$("eraseClr").style.display=n?"":"none";renderMarks();renderList()}
+$("eraseClr").onclick=e=>{e.stopPropagation();S.selSet=null;eraseUpd()};
+$("eraseDel").onclick=e=>{e.stopPropagation();const ids=S.selSet?[...S.selSet]:[];if(!ids.length)return;$("delPop").dataset.ids=ids.join(",");$("delBtn").onclick(e).then(()=>eraseUpd())};
 /* 꾹 눌러 삭제 (신규 손상) */
 function showDelPop(ids,x,y){ids=[].concat(ids).filter(id=>S.marks.has(id));if(!ids.length)return;S.selSet=new Set(ids);S.selId=ids.length===1?ids[0]:null;renderMarks();renderList();
  const p=$("delPop");p.style.left=x+"px";p.style.top=y+"px";p.style.display="block";p.dataset.ids=ids.join(",");$("delBtn").textContent=ids.length>1?`🗑 ${ids.length}개 삭제`:"🗑 삭제"}
