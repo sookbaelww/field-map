@@ -9,6 +9,7 @@ head='''<meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#2563eb">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
+<script src="gate.js"></script>
 <script>window.STANDALONE=true;window.APP_VERSION="'''+v+'''";
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 '''

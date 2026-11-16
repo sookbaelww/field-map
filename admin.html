@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>외관조사 망도 · 사용자 관리</title>
+<style>
+:root{--ground:#eceff2;--paper:#fff;--ink:#1b2430;--sub:#5a6574;--line:#d4d9df;--blue:#2563eb;--red:#dc2626;--green:#16a34a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:"Apple SD Gothic Neo","Pretendard","Malgun Gothic",sans-serif;font-size:16px;line-height:1.55;word-break:keep-all}
+.in{max-width:760px;margin:0 auto;padding:36px 20px 60px}
+h1{font-size:28px;margin:0 0 4px}
+.lead{color:var(--sub);margin:0 0 26px}
+.box{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px}
+.box h2{font-size:18px;margin:0 0 10px}
+label{display:block;font-size:14px;color:var(--sub);margin-bottom:4px}
+input{font:inherit;padding:10px 12px;border:1.5px solid #c6ccd3;border-radius:9px;width:100%}
+.row{display:flex;gap:8px;align-items:flex-end}
+.row>div{flex:1}
+button{font:inherit;font-weight:700;padding:10px 16px;border-radius:9px;border:1.5px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;white-space:nowrap}
+button.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+button.dng{color:var(--red);border-color:#f3c4c4}
+button:disabled{opacity:.5;cursor:default}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:11px 8px;border-bottom:1px solid #eef0f3;vertical-align:middle}
+th{font-size:13px;color:var(--sub);font-weight:600}
+td.act{text-align:right;white-space:nowrap}
+td.act button{padding:7px 12px;font-size:14px;margin-left:4px}
+.st{font-weight:700;font-size:14px}
+.st.on{color:var(--green)}.st.off{color:var(--red)}
+.code{font-size:30px;font-weight:800;letter-spacing:.14em;text-align:center;padding:14px;border:2px dashed var(--blue);border-radius:12px;margin:10px 0;user-select:all}
+.note{font-size:14px;color:var(--sub)}
+.msg{min-height:1.4em;font-size:14px;margin-top:10px}
+.msg.er{color:var(--red)}.msg.ok{color:var(--green)}
+.hide{display:none}
+ol.how{padding-left:20px;margin:8px 0 0;font-size:14.5px;color:var(--sub)}
+</style>
+</head>
+<body><div class="in">
+<h1>사용자 관리</h1>
+<p class="lead">팀원마다 접속 코드를 만들어 주고, 필요하면 막습니다. 막힌 팀원의 앱은 다음 인터넷 연결 때 잠깁니다. 인터넷 없이 쓸 수 있는 기간은 마지막 확인 후 7일입니다.</p>
+
+<div class="box" id="keyBox">
+  <h2>관리자 키</h2>
+  <p class="note">GitHub에서 만든 관리 키를 넣어 주세요. 이 기기에만 저장됩니다.</p>
+  <div class="row"><div><label for="tok">관리 키 (GitHub 토큰)</label><input id="tok" type="password" autocomplete="off" placeholder="github_pat_..."></div><button class="pri" id="tokGo">연결</button></div>
+  <ol class="how">
+    <li>github.com 로그인 → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token</li>
+    <li>Repository access: Only select repositories → <b>field-map</b></li>
+    <li>Permissions → Repository permissions → <b>Contents: Read and write</b></li>
+    <li>만든 키를 복사해서 위 칸에 붙여 넣기</li>
+  </ol>
+  <div class="msg" id="tokMsg"></div>
+</div>
+
+<div id="main" class="hide">
+  <div class="box">
+    <h2>새 팀원 추가</h2>
+    <div class="row"><div><label for="nm">표시 이름</label><input id="nm" autocomplete="off" placeholder="예: 홍OO, 팀원3"></div><button class="pri" id="addGo">코드 만들기</button></div>
+    <p class="note">목록 파일은 공개 주소에 있어서, 실명 대신 성+OO이나 번호를 권합니다. 코드 자체는 암호화되어 저장됩니다.</p>
+    <div id="newCode" class="hide">
+      <div class="code" id="codeTxt"></div>
+      <p class="note">이 코드를 팀원에게 전달하세요. 다시 볼 수 없습니다. 반영까지 몇 분 걸릴 수 있어요.</p>
+    </div>
+  </div>
+
+  <div class="box">
+    <h2>팀원 목록</h2>
+    <table><thead><tr><th>이름</th><th>상태</th><th>만든 날</th><th></th></tr></thead><tbody id="list"></tbody></table>
+    <div class="msg" id="msg"></div>
+  </div>
+  <p class="note"><button id="logout">이 기기에서 관리 키 지우기</button></p>
+</div>
+</div>
+
+<script>
+var REPO="sookbaelww/field-map",PATH="access.json",API="https://api.github.com/repos/"+REPO+"/contents/"+PATH;
+var tok=localStorage.getItem("fm.ghtoken")||"",data=null,sha=null;
+var $=function(id){return document.getElementById(id)};
+function b64e(s){return btoa(unescape(encodeURIComponent(s)))}
+function b64d(s){return decodeURIComponent(escape(atob(s.replace(/\n/g,""))))}
+function hex(buf){return Array.prototype.map.call(new Uint8Array(buf),function(b){return("0"+b.toString(16)).slice(-2)}).join("")}
+function rnd(n,al){var a=new Uint32Array(n);crypto.getRandomValues(a);var s="";for(var i=0;i<n;i++)s+=al[a[i]%al.length];return s}
+async function hash(code,salt,iter){var e=new TextEncoder();var k=await crypto.subtle.importKey("raw",e.encode(code),"PBKDF2",false,["deriveBits"]);
+  return hex(await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt:e.encode(salt),iterations:iter},k,256))}
+function msg(el,t,cls){el.textContent=t||"";el.className="msg"+(cls?" "+cls:"")}
+async function gh(method,body){var r=await fetch(API+(method==="GET"?"?t="+Date.now():""),{method:method,cache:"no-store",headers:{"Authorization":"Bearer "+tok,"Accept":"application/vnd.github+json"},body:body?JSON.stringify(body):undefined});
+  if(r.status===401||r.status===403)throw new Error("관리 키가 맞지 않거나 권한이 부족해요 (Contents: Read and write 필요)");
+  if(r.status===409)throw new Error("다른 곳에서 먼저 바뀌었어요. 새로 불러온 뒤 다시 해 주세요");
+  if(!r.ok&&!(method==="GET"&&r.status===404))throw new Error("GitHub 응답 오류 "+r.status);
+  return r.status===404?null:r.json()}
+async function load(){var j=await gh("GET");if(j){sha=j.sha;data=JSON.parse(b64d(j.content))}else{sha=null;data={v:1,iter:100000,users:[]}}render()}
+async function store(note){var j=await gh("PUT",{message:note,content:b64e(JSON.stringify(data,null,1)+"\n"),sha:sha||undefined,branch:"main"});sha=j.content.sha}
+function render(){var tb=$("list");tb.innerHTML="";
+  if(!data.users.length){tb.innerHTML='<tr><td colspan="4" class="note">아직 팀원이 없어요.</td></tr>';return}
+  data.users.forEach(function(u,i){var tr=document.createElement("tr");var on=u.active!==false;
+    tr.innerHTML='<td></td><td><span class="st '+(on?"on":"off")+'">'+(on?"사용 중":"막힘")+'</span></td><td class="note"></td><td class="act"><button data-t="'+i+'">'+(on?"막기":"다시 허용")+'</button><button class="dng" data-d="'+i+'">삭제</button></td>';
+    tr.children[0].textContent=u.name||"(이름 없음)";tr.children[2].textContent=(u.added||"").slice(0,10);tb.appendChild(tr)});
+  tb.querySelectorAll("[data-t]").forEach(function(b){b.onclick=function(){act(+b.dataset.t,"toggle")}});
+  tb.querySelectorAll("[data-d]").forEach(function(b){b.onclick=function(){act(+b.dataset.d,"del")}})}
+async function act(i,kind){var u=data.users[i];if(!u)return;
+  if(kind==="del"&&!confirm((u.name||"이 팀원")+"을(를) 목록에서 지울까요? 이 코드로는 더 이상 쓸 수 없어요."))return;
+  var before=JSON.stringify(data);
+  try{msg($("msg"),"저장 중…");if(kind==="toggle")u.active=u.active===false;else data.users.splice(i,1);
+    await store((kind==="del"?"사용자 삭제: ":(u.active?"사용자 허용: ":"사용자 막기: "))+(u.name||""));render();
+    msg($("msg"),kind==="del"?"지웠어요.":(u.active?"다시 허용했어요.":"막았어요. 그 팀원의 앱은 다음 인터넷 연결 때 잠겨요."),"ok")}
+  catch(e){data=JSON.parse(before);render();msg($("msg"),e.message,"er")}}
+$("addGo").onclick=async function(){var nm=$("nm").value.trim();if(!nm){$("nm").focus();return}
+  var b=this;b.disabled=true;$("newCode").classList.add("hide");
+  try{var code=rnd(8,"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"),salt=rnd(16,"0123456789abcdef");
+    var h=await hash(code,salt,data.iter||100000);data.users.push({name:nm,salt:salt,h:h,active:true,added:new Date().toISOString()});
+    await store("사용자 추가: "+nm);render();$("codeTxt").textContent=code.slice(0,4)+"-"+code.slice(4);$("newCode").classList.remove("hide");$("nm").value="";msg($("msg"),"")}
+  catch(e){data.users.pop();render();msg($("msg"),e.message,"er")}
+  b.disabled=false};
+async function connect(){msg($("tokMsg"),"연결 중…");try{await load();localStorage.setItem("fm.ghtoken",tok);$("keyBox").classList.add("hide");$("main").classList.remove("hide")}
+  catch(e){msg($("tokMsg"),e.message,"er")}}
+$("tokGo").onclick=function(){tok=$("tok").value.trim();if(tok)connect()};
+$("logout").onclick=function(){localStorage.removeItem("fm.ghtoken");location.reload()};
+if(tok)connect();
+</script>
+</body></html>
