@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#2563eb">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script>window.STANDALONE=true;window.APP_VERSION="202611161303";
+<script>window.STANDALONE=true;window.APP_VERSION="202611161353";
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 
 <script src="lib/pdf.min.js"></script>
@@ -114,7 +114,7 @@ table.dl tr{cursor:pointer}
     <div id="content"><img id="pimg" alt=""><svg id="ov" xmlns="http://www.w3.org/2000/svg"></svg></div>
     <div id="empty"></div>
     <div id="hint"></div>
-    <div id="zoneBar" style="position:absolute;left:10px;top:10px;display:none;gap:6px;flex-wrap:wrap;z-index:5"><button class="btn" id="zAi">🤖 AI 제안 (이 도면)</button><button class="btn" id="zAiAll">🤖 AI 제안 (전체)</button><button class="btn" id="zCopy">같은 부재 도면에 복사</button><button class="btn dng" id="zClear">이 도면 구역 지우기</button><button class="btn pri" id="zDone">완료</button></div>
+    <div id="zoneBar" style="position:absolute;left:10px;top:10px;display:none;gap:6px;flex-wrap:wrap;z-index:5"><button class="btn" id="zBand">▤ 띠로 나누기</button><button class="btn" id="zBox">□ 작은 구역</button><button class="btn" id="zAi">🤖 부재 이름 읽기</button><button class="btn" id="zAiAll">🤖 전체 도면</button><button class="btn" id="zCopy">같은 부재 도면에 복사</button><button class="btn dng" id="zClear">구역 지우기</button><button class="btn pri" id="zDone">완료</button></div>
   </div>
   <div id="side">
     <h3><span id="listTitle">손상 목록</span><span class="muted" id="listCount"></span><button class="btn" id="bExistOne" style="padding:4px 8px;font-size:12px">기존 손상 판독</button></h3>
@@ -132,6 +132,7 @@ table.dl tr{cursor:pointer}
     <div class="f c3" style="display:none"><label>구분</label><div class="seg" id="fStatus"></div></div>
     <div class="f"><label>손상위치(부재)</label><input id="fLoc" list="dlLoc" autocomplete="off"></div>
     <div class="f c2"><label>손상내용</label><input id="fDesc" list="dlDesc" autocomplete="off"></div>
+    <div class="f c3" id="fLocChipsW" style="display:none"><label>부재 빠른 선택</label><div id="fLocChips" style="display:flex;flex-wrap:wrap;gap:5px"></div></div>
     <div class="f"><label>경간</label><input id="fSpan" autocomplete="off"></div>
     <div class="f"><label>폭 (mm)</label><input id="fW" inputmode="decimal" autocomplete="off"></div>
     <div class="f"><label>길이 (m)</label><input id="fL" inputmode="decimal" autocomplete="off"></div>
@@ -199,7 +200,7 @@ table.dl tr{cursor:pointer}
 <!-- 입력 다이얼로그 -->
 <div class="modal center" id="mAsk"><div class="sheet">
   <h2 id="askTitle"></h2><div class="muted" id="askText" style="margin-bottom:10px"></div>
-  <input id="askIn" inputmode="decimal" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:16px">
+  <input id="askIn" inputmode="decimal" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:16px"><div id="askChips" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px"></div>
   <div class="actions"><div class="sp"></div><button class="btn" id="askNo">취소</button><button class="btn pri" id="askOk">확인</button></div>
 </div></div>
 <div class="modal center" id="mConfirm"><div class="sheet">
@@ -333,7 +334,7 @@ function qtyOf(m){const c=num(m.cnt);if(c==null)return m.qtyRaw!=null&&m.qtyRaw!
 function openM(id){$(id).classList.add("show")}
 function closeM(id){$(id).classList.remove("show")}
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest(".modal").classList.remove("show"));
-function ask(title,text,def="",opt={}){return new Promise(res=>{$("askTitle").textContent=title;$("askText").textContent=text;$("askIn").value=def;if(opt.list)$("askIn").setAttribute("list",opt.list);else $("askIn").removeAttribute("list");$("askIn").setAttribute("inputmode",opt.list?"text":"decimal");openM("mAsk");setTimeout(()=>$("askIn").focus(),50);
+function ask(title,text,def="",opt={}){return new Promise(res=>{$("askTitle").textContent=title;$("askText").textContent=text;$("askIn").value=def;if(opt.list)$("askIn").setAttribute("list",opt.list);else $("askIn").removeAttribute("list");$("askChips").innerHTML=(opt.chips||[]).map(c=>`<button type="button" class="btn" style="padding:5px 10px;font-size:13px">${esc(c)}</button>`).join("");$("askChips").querySelectorAll("button").forEach(b=>b.onclick=()=>{$("askIn").value=b.textContent});$("askIn").setAttribute("inputmode",opt.list?"text":"decimal");openM("mAsk");setTimeout(()=>$("askIn").focus(),50);
  $("askOk").onclick=()=>{closeM("mAsk");res($("askIn").value)};$("askNo").onclick=()=>{closeM("mAsk");res(null)}})}
 function confirmBox(title,text){return new Promise(res=>{$("cfTitle").textContent=title;$("cfText").textContent=text;openM("mConfirm");
  $("cfOk").onclick=()=>{closeM("mConfirm");res(true)};$("cfNo").onclick=()=>{closeM("mConfirm");res(false)}})}
@@ -426,7 +427,7 @@ function buildTools(){
  t.innerHTML=h;
  t.querySelectorAll("[data-mc]").forEach(d=>d.onclick=()=>{S.memoColor=d.dataset.mc;ls("ins.mc",S.memoColor);if(S.mode!=="memo"&&S.mode!=="text")S.mode="memo";buildTools()});
  t.querySelectorAll(".tool").forEach(b=>b.onclick=()=>{if(b.dataset.mode){S.mode=b.dataset.mode}else{S.mode="draw";S.tool=b.dataset.k}ls("ins.tool",S.tool);renderTools();renderMarks();zoneBar();
-  hint(S.mode==="draw"?`${lg(S.tool).n}: ${lg(S.tool).g==="line"?"선으로 그리세요":lg(S.tool).g==="area"?"영역을 둘러 그리세요":"위치를 톡 찍으세요"} (한 번 톡 = 점 표시)`:S.mode==="select"?"손상을 눌러 수정 · 번호 동그라미는 끌어서 이동":S.mode==="zone"?"부재 구역: 대각선으로 그어 추가 · 구역을 톡 누르면 이름 수정·삭제":S.mode==="memo"?"자유 메모 (손상 목록에는 안 들어가요) · 꾹 누르면 삭제":S.mode==="text"?"글자를 넣을 곳을 톡 찍으세요 · 글상자를 누르면 수정":"끌어서 이동, 두 손가락으로 확대")});
+  hint(S.mode==="draw"?`${lg(S.tool).n}: ${lg(S.tool).g==="line"?"선으로 그리세요":lg(S.tool).g==="area"?"영역을 둘러 그리세요":"위치를 톡 찍으세요"} (한 번 톡 = 점 표시)`:S.mode==="select"?"손상을 눌러 수정 · 번호 동그라미는 끌어서 이동":S.mode==="zone"?"▤ 띠로 나누기로 테두리를 감싸고, 선을 끌어 맞추세요 · 칸을 누르면 이름":S.mode==="memo"?"자유 메모 (손상 목록에는 안 들어가요) · 꾹 누르면 삭제":S.mode==="text"?"글자를 넣을 곳을 톡 찍으세요 · 글상자를 누르면 수정":"끌어서 이동, 두 손가락으로 확대")});
  renderTools();
 }
 function renderTools(){$("tools").querySelectorAll(".tool").forEach(b=>b.classList.toggle("on",b.dataset.mode?S.mode===b.dataset.mode:(S.mode==="draw"&&S.tool===b.dataset.k)))}
@@ -521,11 +522,12 @@ function nearestPt(pts,x,y){let best=[pts[0],pts[1]],bd=1e18;for(let i=0;i<pts.l
 function renderMarks(){
  const pg=curPage(),ov=$("ov");if(!pg){ov.innerHTML="";return}
  let h=`<defs>${legend().filter(l=>l.g==="area").map(l=>patternDef("p_"+l.k,l,4)).join("")}</defs>`;
- const nb=numbering(pg.id);nb.order.forEach(m=>h+=markSvg(m,nb.map[m.id]||"",m.id===S.selId));pageMemos(pg.id).forEach(m=>h+=memoSvg(m,m.id===S.selId));
- h=h.replace("</defs>","</defs>"+zonesSvg(pg));
+ const zm=S.mode==="zone";if(zm)h+=`<g opacity=".22" style="pointer-events:none">`;const nb=numbering(pg.id);nb.order.forEach(m=>h+=markSvg(m,nb.map[m.id]||"",m.id===S.selId));pageMemos(pg.id).forEach(m=>h+=memoSvg(m,m.id===S.selId));if(zm)h+="</g>";
+ if(S.mode==="zone")h+=zonesSvg(pg);else h=h.replace("</defs>","</defs>"+zonesSvg(pg));
  h+=`<g id="live"></g>`;ov.innerHTML=h;
 }
 function renderList(){
+ if(S.mode==="zone"){renderZonePanel();return}$("listTitle").textContent="손상 목록";
  const pg=curPage(),el=$("list");
  if(!pg){el.innerHTML=`<div class="muted" style="padding:12px">도면이 없습니다.</div>`;$("listCount").textContent="";$("sum").innerHTML="";return}
  const nb=numbering(pg.id),ms=nb.order;const nEx=ms.filter(m=>m.origin==="existing").length;$("listCount").textContent=`${ms.length}건`+(nEx?` (기존 ${nEx} · 확인 ${ms.filter(m=>m.origin==="existing"&&m.check).length})`:"");
@@ -572,6 +574,10 @@ view.addEventListener("pointerdown",e=>{
  if(drawer&&cropMode&&ptrs.size===0){const p=toPage(e.clientX,e.clientY);stroke={pid:e.pointerId,pts:[p],sx:e.clientX,sy:e.clientY};drawLive();return}
  if(drawer&&badgeEl&&(S.mode==="select"||S.mode==="draw")){const m=S.marks.get(badgeEl.dataset.badge);badgeDrag={id:m.id,sx:e.clientX,sy:e.clientY,moved:false,pid:e.pointerId};return}
  if(drawer&&S.mode==="select"){tapSel={id:markEl?markEl.dataset.id:null,x:e.clientX,y:e.clientY,pid:e.pointerId};return}
+ if(drawer&&S.mode==="zone"&&ptrs.size===0){const pg=curPage();const ce=e.target.closest&&e.target.closest("[data-cut],[data-handle],[data-zone]");
+  if(ce){const p=toPage(e.clientX,e.clientY);S.zdrag={pid:e.pointerId,sx:e.clientX,sy:e.clientY,p0:p,moved:false,el:ce.dataset};
+   if(ce.dataset.cut){const[b,dir,i]=ce.dataset.cut.split(":");S.zsel={t:"cut",band:b,dir,i:+i}}else if(ce.dataset.handle||ce.dataset.zone){const id=(ce.dataset.handle||ce.dataset.zone).split(":")[0];S.zsel={t:"zone",id}}
+   renderMarks();renderZonePanel();return}}
  if(drawer&&S.mode==="text"&&ptrs.size===0){const hitT=markEl&&S.marks.get(markEl.dataset.id);const p=toPage(e.clientX,e.clientY);setTimeout(()=>editMemoText(hitT&&hitT.origin==="memo"&&hitT.kind==="text"?hitT:null,p),0);return}
  if(drawer&&(S.mode==="draw"||S.mode==="memo"||S.mode==="zone"||scaleMode)&&ptrs.size===0){const p=toPage(e.clientX,e.clientY);stroke={pid:e.pointerId,pts:[p],sx:e.clientX,sy:e.clientY};drawLive();return}
  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
@@ -579,6 +585,13 @@ view.addEventListener("pointerdown",e=>{
  if(ptrs.size===2){pan=null;const[a,b]=[...ptrs.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),mx:(a.x+b.x)/2,my:(a.y+b.y)/2,v:{...S.view}}}
 });
 view.addEventListener("pointermove",e=>{
+ if(S.zdrag&&e.pointerId===S.zdrag.pid){const d=S.zdrag;if(Math.hypot(e.clientX-d.sx,e.clientY-d.sy)>4)d.moved=true;if(!d.moved)return;const pg=curPage();const p=toPage(e.clientX,e.clientY);
+  if(d.el.cut){const[bid,dir,i]=d.el.cut.split(":");const b=(pg.bands||[]).find(x=>x.id===bid);if(!b)return;const key=dir==="h"?"hs":"vs";const arr=(d.tmp||b[key]||[]).slice();const[x0,y0,x1,y1]=b.box;const f=dir==="h"?(p[1]-y0)/(y1-y0):(p[0]-x0)/(x1-x0);const lo=(+i>0?arr[+i-1]:0)+0.01,hi=(+i<arr.length-1?arr[+i+1]:1)-0.01;arr[+i]=Math.max(lo,Math.min(hi,f));d.tmp=arr;
+   S.pages.set(pg.id,{...pg,bands:pg.bands.map(x=>x.id===bid?{...x,[key]:arr}:x)});renderMarks();return}
+  const zid=(d.el.handle||d.el.zone||"").split(":")[0];const z=(pg.zones||[]).find(q=>q.id===zid);if(!z)return;const ob=d.ob||(d.ob=z.box.slice());let nb;
+  if(d.el.handle){const k=+d.el.handle.split(":")[1];nb=ob.slice();if(k===0||k===3)nb[0]=p[0];else nb[2]=p[0];if(k<2)nb[1]=p[1];else nb[3]=p[1];nb=[Math.min(nb[0],nb[2]),Math.min(nb[1],nb[3]),Math.max(nb[0],nb[2]),Math.max(nb[1],nb[3])]}
+  else{const dx=p[0]-d.p0[0],dy=p[1]-d.p0[1];nb=[ob[0]+dx,ob[1]+dy,ob[2]+dx,ob[3]+dy]}
+  nb=nb.map(r1);S.pages.set(pg.id,{...pg,zones:pg.zones.map(q=>q.id===zid?{...q,box:nb}:q)});renderMarks();return}
  if(lp&&e.pointerId===lp.pid&&!lp.moved&&Math.hypot(e.clientX-lp.x,e.clientY-lp.y)>8){lp.moved=true;clearTimeout(lp.t)}
  if(lp&&lp.fired&&e.pointerId===lp.pid)return;
  if(stroke&&e.pointerId===stroke.pid){const evs=e.getCoalescedEvents?e.getCoalescedEvents():[e];evs.forEach(ev=>{const p=toPage(ev.clientX,ev.clientY);const l=stroke.pts[stroke.pts.length-1];if(Math.hypot(p[0]-l[0],p[1]-l[1])*S.view.s>1.5)stroke.pts.push(p)});drawLive();return}
@@ -590,6 +603,11 @@ view.addEventListener("pointermove",e=>{
  if(pan&&e.pointerId===pan.id){S.view.tx=pan.tx+(e.clientX-pan.x);S.view.ty=pan.ty+(e.clientY-pan.y);applyView()}
 });
 function endPtr(e){
+ if(S.zdrag&&e.pointerId===S.zdrag.pid){const d=S.zdrag;S.zdrag=null;const pg=curPage();
+  if(d.moved){savePage({...S.pages.get(pg.id)}).then(()=>{renderMarks();renderZonePanel()});return}
+  if(d.el.cell){const[b,r,c]=d.el.cell.split(":");S.zsel={t:"cell",band:b,r:+r,c:+c};renderMarks();renderZonePanel();renameCell(pg,b,+r,+c);return}
+  if(d.el.zone){const z=(pg.zones||[]).find(q=>q.id===d.el.zone);if(z)renameZone(pg,z);return}
+  renderZonePanel();return}
  if(lp&&e.pointerId===lp.pid){clearTimeout(lp.t);const f=lp.fired;lp=null;if(f){ptrs.delete(e.pointerId);return}}
  if(stroke&&e.pointerId===stroke.pid){const st=stroke;stroke=null;$("live")&&($("live").innerHTML="");finishStroke(st);return}
  if(badgeDrag&&e.pointerId===badgeDrag.pid){const bd=badgeDrag;badgeDrag=null;const m=S.marks.get(bd.id);if(!m)return;if(bd.moved&&bd.pos){saveMark(m.origin==="existing"?{...m,pts:bd.pos}:{...m,badge:bd.pos})}else{S.selId=m.id;renderMarks();renderList();openMark(m)}return}
@@ -617,8 +635,12 @@ async function finishStroke(st){
  const pg=curPage();if(!pg)return;
  if(cropMode){const cb=cropMode;cropMode=null;const a=st.pts[0],b=st.pts[st.pts.length-1];const box=[Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.max(a[0],b[0]),Math.max(a[1],b[1])];if(box[2]-box[0]<2||box[3]-box[1]<2){toast("너무 작아요. 다시 시도하세요");return}cb(box);return}
  if(S.mode==="zone"&&!scaleMode){const a=st.pts[0],b=st.pts[st.pts.length-1];const box=[r1(Math.min(a[0],b[0])),r1(Math.min(a[1],b[1])),r1(Math.max(a[0],b[0])),r1(Math.max(a[1],b[1]))];
-  if((box[2]-box[0])*S.view.s<12||(box[3]-box[1])*S.view.s<12){const z=zoneAt(pg,a[0],a[1],true);if(z)editZone(pg,z);return}
-  const v=await ask("부재 구역 이름","이 구역에 손상을 그리면 손상위치(부재)에 이 이름이 자동으로 들어가요","",{list:"dlLoc"});if(v&&v.trim())await savePage({...S.pages.get(pg.id),zones:(S.pages.get(pg.id).zones||[]).concat([{id:"Z"+uid().slice(0,8),name:v.trim(),box}])});renderMarks();return}
+  if((box[2]-box[0])*S.view.s<12||(box[3]-box[1])*S.view.s<12){const cell=allZones(pg).filter(z=>!z.small&&a[0]>=z.box[0]&&a[0]<=z.box[2]&&a[1]>=z.box[1]&&a[1]<=z.box[3])[0];
+   if(cell){S.zsel={t:"cell",band:cell.band,r:cell.r,c:cell.c};renderMarks();renderZonePanel();renameCell(S.pages.get(pg.id),cell.band,cell.r,cell.c)}else{S.zsel=null;renderMarks();renderZonePanel()}return}
+  const cur=S.pages.get(pg.id);
+  if(S.zTool==="band"){const ns=(cur.memberNames||[]);const names={"0:0":ns[0]||"난간및연석","1:0":ns.length>2?ns[1]:(cur.member||"교면포장"),"2:0":ns.length>2?ns[ns.length-1]:"난간및연석"};
+   await savePageZ(cur,{bands:(cur.bands||[]).concat([{id:"B"+uid().slice(0,8),box,hs:[0.1,0.9],vs:[],names}])});S.zTool="box";zoneBar();hint("가로선을 끌어 띠 폭을 맞추고, 칸을 톡 눌러 이름을 정하세요",5000);return}
+  const v=await nameAsk(cur,"작은 구역 이름","");if(v&&v.trim()){await savePageZ(cur,{zones:(cur.zones||[]).concat([{id:"Z"+uid().slice(0,8),name:v.trim(),box}])})}return}
  if(S.mode==="memo"&&!scaleMode){const eps=Math.max(0.2,0.5/S.view.s);let pts=st.pts.length<2?[st.pts[0],[st.pts[0][0]+0.5,st.pts[0][1]+0.5]]:rdp(st.pts,eps);
   await saveMark({id:uid(),page:pg.id,origin:"memo",kind:"pen",pts:pts.flatMap(q=>[r1(q[0]),r1(q[1])]),color:S.memoColor,w:Math.max(0.6,1.4/Math.max(1,S.view.s/2)),author:ls("ins.author")||"",createdAt:Date.now()});return}
  const moved=Math.hypot(st.pts[st.pts.length-1][0]-st.pts[0][0],st.pts[st.pts.length-1][1]-st.pts[0][1])*S.view.s;
@@ -676,7 +698,7 @@ function openMark(m,isNew){
  $("fNum").textContent=isNew?numbering(m.page).next:(markNo(m)||"-");$("fTitle").textContent=isNew?"새 손상":"손상 수정";
  if(![...$("fType").options].some(o=>o.value===m.type)){buildTypeSelect()}$("fType").value=m.type;markTypeGrid();refreshDesc(m.type);refreshDatalists();
  $("fStatus").querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.s===m.status));
- $("fLoc").value=m.loc||"";$("fDesc").value=m.desc||"";$("fSpan").value=m.span||"";$("fW").value=m.w||"";$("fL").value=m.l||"";$("fB").value=m.b||"";$("fCnt").value=m.cnt??"";
+ $("fLoc").value=m.loc||"";{const ms=memberSuggest(S.pages.get(m.page));$("fLocChipsW").style.display=ms.length?"flex":"none";$("fLocChips").innerHTML=ms.map(n=>`<button type="button" class="btn" style="padding:5px 10px;font-size:13px;${n===m.loc?"background:#e8efff;border-color:var(--acc);color:var(--acc)":""}">${esc(n)}</button>`).join("");$("fLocChips").querySelectorAll("button").forEach(b=>b.onclick=()=>{$("fLoc").value=b.textContent;$("fLocChips").querySelectorAll("button").forEach(x=>{const on=x===b;x.style.background=on?"#e8efff":"";x.style.borderColor=on?"var(--acc)":"";x.style.color=on?"var(--acc)":""})})}$("fDesc").value=m.desc||"";$("fSpan").value=m.span||"";$("fW").value=m.w||"";$("fL").value=m.l||"";$("fB").value=m.b||"";$("fCnt").value=m.cnt??"";
  $("fPhoto").value=m.photo||"";$("fNote").value=m.note||"";$("fAuthor").value=m.author||ls("ins.author")||"";
  const ex=m.origin==="existing";$("fExist").style.display=ex?"flex":"none";if(ex){$("fOld").textContent=m.oldNo||"?";$("fCheck").querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.c===m.check));$("fPin").textContent=m.pts&&m.pts.length?"위치 다시 지정":"위치 지정"}
  $("fDel").style.visibility=isNew?"hidden":"visible";$("fDel").textContent=m.deleted?"복원":"삭제";updQty();openM("mMark");
@@ -1115,7 +1137,7 @@ $("repMode").querySelectorAll("button").forEach(b=>b.onclick=async()=>{const p=P
 
 /* ───────── 표준 외관조사망도 생성 (망도 없는 시설물용) ───────── */
 const SHEET={w:1190.55,h:841.89};
-let ZC=null;const zr=(name,x,y,w,h)=>{if(ZC&&w>0&&h>0)ZC.push({name,box:[r1(x),r1(y),r1(x+w),r1(y+h)]})};
+let ZC=null,BC=null;const zr=(name,x,y,w,h)=>{if(ZC&&w>0&&h>0)ZC.push({name,box:[r1(x),r1(y),r1(x+w),r1(y+h)]})};
 const SFONT="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif";
 const STD_TB=[875,40,1160,560],STD_LB=[875,572,1160,762];
 const DA={x0:50,y0:80,x1:840,y1:740,cx:445,cy:415};
@@ -1128,7 +1150,7 @@ function supCircle(x,y,label){return`<circle cx="${x}" cy="${y}" r="13" fill="#f
 function dirArrows(a,b){return sT(DA.x0+10,70,`← ${a||"시점"}`,11,"start")+sT(DA.x1-10,70,`${b||"종점"} →`,11,"end")}
 /* 평면(교면포장·바닥판 하면 등) */
 function bodyPlan(L,B,o){const s=fitS(L,B);const w=L*s,h=B*s,x=DA.cx-w/2,y=DA.cy-h/2;let g=sR(x,y,w,h,1.3);
- if(o.kind==="deck"){const r=Math.min(0.5*s,h*0.08);zr("난간및연석",x,y,w,r);zr(o.zone||"교면포장",x,y+r,w,h-2*r);zr("난간및연석",x,y+h-r,w,r)}else zr(o.zone||"바닥판",x,y,w,h);
+ if(o.kind==="deck"){const r=Math.min(0.5*s,h*0.08);if(BC)BC.push({box:[r1(x),r1(y),r1(x+w),r1(y+h)],hs:[r/h,1-r/h],vs:[],names:{"0:0":"난간및연석","1:0":o.zone||"교면포장","2:0":"난간및연석"}})}else zr(o.zone||"바닥판",x,y,w,h);
  if(o.kind==="deck"){const r=Math.min(0.5*s,h*0.08);g+=sL(x,y+r,x+w,y+r,0.6)+sL(x,y+h-r,x+w,y+h-r,0.6);const lanes=Math.max(1,Math.round((B-1)/3.5));for(let i=1;i<lanes;i++){const yy=y+r+(h-2*r)*i/lanes;g+=sL(x,yy,x+w,yy,0.6,"6 5")}
   g+=sT(x+w/2,y-8,"(난간·연석)",8,"middle",'fill="#666"')}
  if(o.kind==="soffit"&&o.girders>0){const n=o.girders;for(let i=0;i<n;i++){const yy=y+h*(i+0.5)/n;g+=sL(x,yy,x+w,yy,0.7,"8 4")+sT(x-6,yy+3,"G"+(i+1),8,"end")}
@@ -1237,9 +1259,9 @@ async function runStd(){const v=stdVals();const list=planStd(v);if(!list.length)
  closeM("mStd");let idx=sortedPages().length;const base=sortedPages().filter(pg=>/^\d+$/.test(pg.no||"")).reduce((a,pg)=>Math.max(a,+pg.no),0);let first=null;const nd=String(base+list.length).length<2?2:String(base+list.length).length;
  const norm=b=>[Math.round(b[0]/SHEET.w*1000),Math.round(b[1]/SHEET.h*1000),Math.round(b[2]/SHEET.w*1000),Math.round(b[3]/SHEET.h*1000)];
  try{for(let i=0;i<list.length;i++){const it=list[i];progress(`표준 망도 만드는 중 ${i+1}/${list.length}`,(i+1)/list.length);
-   const no=String(base+i+1).padStart(nd,"0");ZC=[];const bd=it.fn();const zones=ZC.map(z=>({id:"Z"+uid().slice(0,8),...z}));ZC=null;const svg=sheetSvg({title:it.title,no,struct:P().name,proj:v.proj,body:bd.g});
+   const no=String(base+i+1).padStart(nd,"0");ZC=[];BC=[];const bd=it.fn();const zones=ZC.map(z=>({id:"Z"+uid().slice(0,8),...z}));const bands=BC.map(b=>({id:"B"+uid().slice(0,8),...b}));ZC=null;BC=null;const svg=sheetSvg({title:it.title,no,struct:P().name,proj:v.proj,body:bd.g});
    const blob=await svgToPng(svg,2.7);const id=await addPage(blob,SHEET.w,SHEET.h,it.title,idx++,no);first=first||id;
-   const pg={...S.pages.get(id),member:it.member,span:it.span,isDrawing:true,std:true,ai:{tableBox:norm(STD_TB),legendBox:norm(STD_LB)},tableCols:DEF_COLS.slice(),tableFields:{...DEF_F},zones};if(bd.s)pg.scale=Math.round(bd.s*1000)/1000;await savePage(pg)}
+   const pg={...S.pages.get(id),member:it.member,span:it.span,isDrawing:true,std:true,ai:{tableBox:norm(STD_TB),legendBox:norm(STD_LB)},tableCols:DEF_COLS.slice(),tableFields:{...DEF_F},zones,bands,memberNames:[...new Set(zones.map(z=>z.name).concat(bands.flatMap(b=>Object.values(b.names))))]};if(bd.s)pg.scale=Math.round(bd.s*1000)/1000;await savePage(pg)}
   progress(null);S.pageId=first;showPage(true);renderPageList();toast(`표준 망도 ${list.length}장을 만들었어요${v.type==="bridge"?" — 축척이 맞춰져 있어 길이·면적이 자동 계산돼요":""}`,5000)}
  catch(e){progress(null);toast("표준 망도 만들기 실패: "+(e.message||e.code||e),6000)}}
 $("sdType").querySelectorAll("button").forEach(b=>b.onclick=()=>{$("sdType").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));stdRefresh()});
@@ -1294,32 +1316,83 @@ function addDuplicate(base){const pg=S.pages.get(base.page);if(!pg)return;
  const bb=base.badge||[pts[0]+8,pts[1]-8];
  const m={id:uid(),page:base.page,type,geom,pts,badge:[r1(bb[0]+13),r1(bb[1])],status:"신규",loc:base.loc||"",desc:lg(type).presets[0],span:base.span||pg.span||"",w:"",l:base.l||"",b:base.b||"",cnt:base.cnt||"1",photo:base.photo||"",note:"",author:base.author||ls("ins.author")||"",dupOf:base.id,createdAt:Date.now()};
  openMark(m,true);toast("같은 자리의 중복 손상이에요 — 종류와 규격을 확인하세요 (백태면 너비 입력)",4500)}
-/* ───────── 부재 구역 ───────── */
-S.showZones=true;
+/* ───────── 부재 구역 (띠 나누기 + 작은 구역) ───────── */
+S.showZones=true;S.zTool="box";S.zsel=null;S.zdrag=null;
+const ZCOL=["#2563eb","#16a34a","#ea580c","#9333ea","#0891b2","#db2777","#ca8a04","#4f46e5","#059669","#dc2626"];
+const zcol=n=>{let h=0;for(const ch of String(n||""))h=(h*31+ch.codePointAt(0))>>>0;return ZCOL[h%ZCOL.length]};
 function centroid(p){if(!p||p.length<2)return[0,0];let x=0,y=0,n=0;for(let i=0;i<p.length;i+=2){x+=p[i];y+=p[i+1];n++}return[x/n,y/n]}
-function zoneAt(pg,x,y){const zs=(pg&&pg.zones)||[];let best=null,ba=1e18;zs.forEach(z=>{const[a,b,c,d]=z.box;if(x>=a&&x<=c&&y>=b&&y<=d){const ar=(c-a)*(d-b);if(ar<ba){ba=ar;best=z}}});return best}
-function zonesSvg(pg){const zs=(pg&&pg.zones)||[];if(!zs.length)return"";const on=S.mode==="zone";if(!on&&!S.showZones)return"";
- return`<g style="pointer-events:none">${zs.map(z=>{const[a,b,c,d]=z.box;const fs=on?Math.max(6,Math.min(11,(d-b)*0.5)):Math.max(4,Math.min(6,(d-b)*0.4));
-  return`<rect x="${a}" y="${b}" width="${c-a}" height="${d-b}" fill="${on?"rgba(37,99,235,.08)":"none"}" stroke="${on?"#2563eb":"#94a3b8"}" stroke-width="${on?0.9:0.4}" stroke-dasharray="${on?"4 2":"2 2"}"/><text x="${a+2}" y="${b+fs+1}" font-size="${fs}" fill="${on?"#1d4ed8":"#94a3b8"}" font-family="sans-serif" font-weight="${on?700:400}">${esc(z.name)}</text>`}).join("")}</g>`}
-async function editZone(pg,z){const v=await ask("부재 구역 수정","이름을 고치거나, 비우고 확인하면 이 구역을 지워요",z.name,{list:"dlLoc"});if(v==null)return;const cur=S.pages.get(pg.id);
- const zs=(cur.zones||[]).map(x=>x.id===z.id?{...x,name:v.trim()}:x).filter(x=>x.name);await savePage({...cur,zones:zs});renderMarks();toast(v.trim()?"구역 이름을 바꿨어요":"구역을 지웠어요")}
-function zoneBar(){const on=S.mode==="zone"&&!!curPage();$("zoneBar").style.display=on?"flex":"none";$("zAi").style.display=$("zAiAll").style.display=aiReady()?"":"none"}
-$("zDone").onclick=()=>{S.mode="draw";renderTools();renderMarks();zoneBar()};
-$("zClear").onclick=async()=>{const pg=curPage();if(!pg||!(pg.zones||[]).length)return;if(!await confirmBox("구역 지우기",`이 도면의 부재 구역 ${pg.zones.length}개를 모두 지울까요?`))return;await savePage({...pg,zones:[]});renderMarks()};
-$("zCopy").onclick=async()=>{const pg=curPage();if(!pg||!(pg.zones||[]).length){toast("먼저 이 도면에 구역을 나누세요");return}
+function bandCells(b){const[x0,y0,x1,y1]=b.box;const H=[0,...(b.hs||[]),1],V=[0,...(b.vs||[]),1];const out=[];
+ for(let r=0;r<H.length-1;r++)for(let c=0;c<V.length-1;c++)out.push({band:b.id,r,c,name:(b.names||{})[r+":"+c]||"",box:[x0+(x1-x0)*V[c],y0+(y1-y0)*H[r],x0+(x1-x0)*V[c+1],y0+(y1-y0)*H[r+1]]});return out}
+function allZones(pg){const out=[];((pg&&pg.bands)||[]).forEach(b=>bandCells(b).forEach(c=>out.push(c)));((pg&&pg.zones)||[]).forEach(z=>out.push({...z,small:true}));return out}
+function zoneAt(pg,x,y){let best=null,ba=1e18;allZones(pg).forEach(z=>{if(!z.name)return;const[a,b,c,d]=z.box;if(x>=a&&x<=c&&y>=b&&y<=d){const ar=(c-a)*(d-b)*(z.small?0.5:1);if(ar<ba){ba=ar;best=z}}});return best}
+function memberSuggest(pg){const set=new Set();((pg&&pg.memberNames)||[]).forEach(n=>set.add(n));allZones(pg).forEach(z=>z.name&&set.add(z.name));if(pg&&pg.member)set.add(pg.member);return[...set]}
+function zLabel(x,y,t,fs,c){return`<text pointer-events="none" x="${x}" y="${y}" font-size="${fs}" text-anchor="middle" dominant-baseline="middle" fill="${c}" stroke="#fff" stroke-width="${fs*0.35}" paint-order="stroke" font-family="sans-serif" font-weight="700">${esc(t)}</text>`}
+function zonesSvg(pg){const on=S.mode==="zone";const bands=(pg&&pg.bands)||[],zs=(pg&&pg.zones)||[];if(!bands.length&&!zs.length)return"";if(!on&&!S.showZones)return"";
+ let h=`<g${on?"":' style="pointer-events:none"'}>`;
+ bands.forEach(b=>{const cells=bandCells(b);cells.forEach(c=>{const[a,bb,cc,d]=c.box;const sel=on&&S.zsel&&S.zsel.t==="cell"&&S.zsel.band===b.id&&S.zsel.r===c.r&&S.zsel.c===c.c;const col=c.name?zcol(c.name):"#94a3b8";
+   h+=on?`<rect data-cell="${b.id}:${c.r}:${c.c}" x="${a}" y="${bb}" width="${cc-a}" height="${d-bb}" fill="${col}" fill-opacity="${sel?0.32:0.16}" stroke="${sel?"#facc15":"none"}" stroke-width="2"/>`:"";
+   const fs=on?Math.max(5,Math.min(11,(d-bb)*0.45,(cc-a)/Math.max(2,c.name.length)*1.1)):Math.max(3.5,Math.min(5.5,(d-bb)*0.4));
+   if(on||c.name)h+=on?zLabel((a+cc)/2,(bb+d)/2,c.name||"(이름 없음)",fs,c.name?col:"#64748b"):`<text x="${a+2}" y="${bb+fs+0.5}" font-size="${fs}" fill="#94a3b8" font-family="sans-serif">${esc(c.name)}</text>`});
+  const[x0,y0,x1,y1]=b.box;h+=`<rect x="${x0}" y="${y0}" width="${x1-x0}" height="${y1-y0}" fill="none" stroke="${on?"#1d4ed8":"#94a3b8"}" stroke-width="${on?1.4:0.4}" stroke-dasharray="${on?"":"2 2"}"/>`;
+  (b.hs||[]).forEach((f,i)=>{const y=y0+(y1-y0)*f;const sel=on&&S.zsel&&S.zsel.t==="cut"&&S.zsel.band===b.id&&S.zsel.dir==="h"&&S.zsel.i===i;h+=`<line x1="${x0}" y1="${y}" x2="${x1}" y2="${y}" stroke="${on?(sel?"#facc15":"#1d4ed8"):"#94a3b8"}" stroke-width="${on?(sel?2.4:1.2):0.4}" stroke-dasharray="${on?"":"2 2"}"/>`+(on?`<line data-cut="${b.id}:h:${i}" x1="${x0}" y1="${y}" x2="${x1}" y2="${y}" stroke="transparent" stroke-width="9" style="cursor:ns-resize"/><circle cx="${x0-5}" cy="${y}" r="3.2" fill="#1d4ed8" pointer-events="none"/>`:"")});
+  (b.vs||[]).forEach((f,i)=>{const x=x0+(x1-x0)*f;const sel=on&&S.zsel&&S.zsel.t==="cut"&&S.zsel.band===b.id&&S.zsel.dir==="v"&&S.zsel.i===i;h+=`<line x1="${x}" y1="${y0}" x2="${x}" y2="${y1}" stroke="${on?(sel?"#facc15":"#1d4ed8"):"#94a3b8"}" stroke-width="${on?(sel?2.4:1.2):0.4}" stroke-dasharray="${on?"":"2 2"}"/>`+(on?`<line data-cut="${b.id}:v:${i}" x1="${x}" y1="${y0}" x2="${x}" y2="${y1}" stroke="transparent" stroke-width="9" style="cursor:ew-resize"/><circle cx="${x}" cy="${y0-5}" r="3.2" fill="#1d4ed8" pointer-events="none"/>`:"")})});
+ zs.forEach(z=>{const[a,b,c,d]=z.box;const col=zcol(z.name);const sel=on&&S.zsel&&S.zsel.t==="zone"&&S.zsel.id===z.id;
+  if(on){h+=`<rect data-zone="${z.id}" x="${a}" y="${b}" width="${c-a}" height="${d-b}" fill="${col}" fill-opacity="${sel?0.35:0.22}" stroke="${sel?"#facc15":col}" stroke-width="${sel?2:1}" stroke-dasharray="4 2" style="cursor:move"/>`+zLabel((a+c)/2,(b+d)/2,z.name,Math.max(5,Math.min(9,(d-b)*0.5,(c-a)/Math.max(2,z.name.length)*1.1)),col);
+   if(sel)[[a,b],[c,b],[c,d],[a,d]].forEach((p,k)=>{h+=`<rect data-handle="${z.id}:${k}" x="${p[0]-4}" y="${p[1]-4}" width="8" height="8" fill="#fff" stroke="#1d4ed8" stroke-width="1.2" style="cursor:nwse-resize"/>`})}
+  else h+=`<rect x="${a}" y="${b}" width="${c-a}" height="${d-b}" fill="none" stroke="#94a3b8" stroke-width="0.4" stroke-dasharray="2 2"/><text x="${a+2}" y="${b+5}" font-size="4.5" fill="#94a3b8" font-family="sans-serif">${esc(z.name)}</text>`});
+ return h+"</g>"}
+async function savePageZ(pg,patch){await savePage({...S.pages.get(pg.id),...patch});renderMarks();renderList()}
+async function nameAsk(pg,title,cur){return await ask(title,"부재 이름을 고르거나 입력하세요. 비우면 지워요",cur||"",{list:"dlLoc",chips:memberSuggest(pg).concat(["교면포장","난간및연석","배수시설","신축이음","바닥판","거더","가로보","교량받침"]).filter((v,i,a)=>v&&a.indexOf(v)===i).slice(0,16)})}
+async function renameCell(pg,bid,r,c){const b=(pg.bands||[]).find(x=>x.id===bid);if(!b)return;const v=await nameAsk(pg,"띠 칸 이름",(b.names||{})[r+":"+c]);if(v==null)return;
+ const bands=pg.bands.map(x=>x.id===bid?{...x,names:{...(x.names||{}),[r+":"+c]:v.trim()}}:x);await savePageZ(pg,{bands})}
+async function renameZone(pg,z){const v=await nameAsk(pg,"작은 구역 이름",z.name);if(v==null)return;const zones=(pg.zones||[]).map(x=>x.id===z.id?{...x,name:v.trim()}:x).filter(x=>x.name);S.zsel=null;await savePageZ(pg,{zones})}
+function addCut(pg,bid,dir){const b=(pg.bands||[]).find(x=>x.id===bid);if(!b)return;const key=dir==="h"?"hs":"vs";const arr=[0,...(b[key]||[]),1];let k=0,gap=0;for(let i=0;i<arr.length-1;i++)if(arr[i+1]-arr[i]>gap){gap=arr[i+1]-arr[i];k=i}
+ const nv=(arr[k]+arr[k+1])/2;const cuts=[...(b[key]||[]),nv].sort((a,b)=>a-b);const idx=cuts.indexOf(nv);const names={};
+ Object.entries(b.names||{}).forEach(([rc,n])=>{let[r,c]=rc.split(":").map(Number);if(dir==="h"){if(r>idx)r++;}else{if(c>idx)c++;}names[r+":"+c]=n});
+ Object.entries(b.names||{}).forEach(([rc,n])=>{const[r,c]=rc.split(":").map(Number);if(dir==="h"&&r===idx)names[(r+1)+":"+c]=n;if(dir==="v"&&c===idx)names[r+":"+(c+1)]=n});
+ return savePageZ(pg,{bands:pg.bands.map(x=>x.id===bid?{...x,[key]:cuts,names}:x)})}
+function delCut(pg,bid,dir,i){const b=(pg.bands||[]).find(x=>x.id===bid);if(!b)return;const key=dir==="h"?"hs":"vs";const cuts=(b[key]||[]).filter((_,k)=>k!==i);const names={};
+ Object.entries(b.names||{}).forEach(([rc,n])=>{let[r,c]=rc.split(":").map(Number);if(dir==="h"){if(r===i+1){if(!(b.names||{})[i+":"+c])names[i+":"+c]=n;return}if(r>i+1)r--;}else{if(c===i+1){if(!(b.names||{})[r+":"+i])names[r+":"+i]=n;return}if(c>i+1)c--;}names[r+":"+c]=names[r+":"+c]||n});
+ S.zsel=null;return savePageZ(pg,{bands:pg.bands.map(x=>x.id===bid?{...x,[key]:cuts,names}:x)})}
+function zoneBar(){const on=S.mode==="zone"&&!!curPage();$("zoneBar").style.display=on?"flex":"none";$("zAi").style.display=$("zAiAll").style.display=aiReady()?"":"none";
+ $("zBand").classList.toggle("on",S.zTool==="band");$("zBox").classList.toggle("on",S.zTool==="box")}
+$("zBand").onclick=()=>{S.zTool="band";zoneBar();hint("도면 그림 테두리를 대각선으로 감싸 그으세요 → 가로 3칸으로 나뉘어요",5000)};
+$("zBox").onclick=()=>{S.zTool="box";zoneBar();hint("배수구처럼 작은 부재를 대각선으로 감싸세요",4000)};
+$("zDone").onclick=()=>{S.mode="draw";S.zsel=null;renderTools();renderMarks();renderList();zoneBar()};
+$("zClear").onclick=async()=>{const pg=curPage();if(!pg||!allZones(pg).length)return;if(!await confirmBox("구역 지우기","이 도면의 띠·구역을 모두 지울까요?"))return;S.zsel=null;await savePageZ(pg,{zones:[],bands:[]})};
+$("zCopy").onclick=async()=>{const pg=curPage();if(!pg||!allZones(pg).length){toast("먼저 이 도면에 구역을 나누세요");return}
  const key=String(pg.member||"").trim();const tg=sortedPages().filter(p=>p.id!==pg.id&&p.isDrawing!==false&&(key?String(p.member||"").trim()===key:false));
  if(!tg.length){toast(key?`'${key}' 부재 도면이 더 없어요 (도면정보의 망도부재로 판단)`:"도면정보에 망도부재가 없어 같은 부재 도면을 찾을 수 없어요",5000);return}
- if(!await confirmBox("구역 복사",`이 도면의 구역 ${pg.zones.length}개를 '${key}' 도면 ${tg.length}장에 복사할까요? 그 도면들의 기존 구역은 바뀝니다.`))return;
- for(const p of tg){const sx=p.w/pg.w,sy=p.h/pg.h;await savePage({...p,zones:pg.zones.map(z=>({id:"Z"+uid().slice(0,8),name:z.name,box:[r1(z.box[0]*sx),r1(z.box[1]*sy),r1(z.box[2]*sx),r1(z.box[3]*sy)]}))})}
+ if(!await confirmBox("구역 복사",`이 도면의 띠·구역을 '${key}' 도면 ${tg.length}장에 복사할까요? 그 도면들의 기존 구역은 바뀝니다.`))return;
+ for(const p of tg){const sx=p.w/pg.w,sy=p.h/pg.h;const sc=b=>[r1(b[0]*sx),r1(b[1]*sy),r1(b[2]*sx),r1(b[3]*sy)];
+  await savePage({...p,zones:(pg.zones||[]).map(z=>({id:"Z"+uid().slice(0,8),name:z.name,box:sc(z.box)})),bands:(pg.bands||[]).map(b=>({...b,id:"B"+uid().slice(0,8),box:sc(b.box)}))})}
  toast(`${tg.length}장에 구역을 복사했어요`)};
-const ZONE_PROMPT=`이 이미지는 시설물 외관조사망도입니다. 도면(그림) 영역을 부재별 구역으로 나누세요. 표제란·범례·손상물량표·KEY PLAN은 제외하고, 손상을 그려 넣는 망도 그림 안에서만 나눕니다. 이름은 망도에 적힌 부재명이나 표준 명칭(교면포장, 난간및연석, 배수시설, 신축이음, 바닥판, 거더, 가로보, 교량받침, 흉벽, 구체, 날개벽, 기초, 코핑, 기둥, 라이닝 등)을 쓰세요. 구역은 겹쳐도 되고, 작은 부재(배수구·난간 띠 등)는 작은 구역으로 따로 두세요. JSON 하나만 출력: {"zones":[{"name":"난간및연석","box":[x0,y0,x1,y1]}]} 좌표는 이미지 왼쪽위 0 ~ 오른쪽아래 1000.`;
-async function aiZones(ids){if(!aiReady()){toast("이 화면에서는 AI를 쓸 수 없어요",4000);return}let i=0,done=0,fail=0;progress(`부재 구역 AI 판독 0/${ids.length}`,0);
- const work=async id=>{try{const pg=S.pages.get(id);if(!pg||pg.isDrawing===false)return;const bm=await pageBitmap(pg);const r=await aiJson(ZONE_PROMPT,await cropBlob(bm,0,0,bm.width,bm.height,1568));bm.close&&bm.close();
-   const zs=(r.zones||[]).filter(z=>z&&z.name&&validBox(z.box)).map(z=>({id:"Z"+uid().slice(0,8),name:String(z.name).trim(),box:[r1(z.box[0]/1000*pg.w),r1(z.box[1]/1000*pg.h),r1(z.box[2]/1000*pg.w),r1(z.box[3]/1000*pg.h)]}));
-   if(zs.length)await savePage({...S.pages.get(id),zones:zs})}catch(e){console.warn(e);fail++}done++;progress(`부재 구역 AI 판독 ${done}/${ids.length}`,done/ids.length)};
- await Promise.all([0,1,2].map(async()=>{while(i<ids.length)await work(ids[i++])}));progress(null);renderMarks();toast(`부재 구역 판독 완료${fail?` (실패 ${fail}장)`:""} — 틀린 구역은 눌러서 고치세요`,5000)}
-$("zAi").onclick=()=>{const pg=curPage();if(pg)aiZones([pg.id])};
-$("zAiAll").onclick=async()=>{const ids=sortedPages().filter(p=>p.isDrawing!==false).map(p=>p.id);if(await confirmBox("부재 구역 AI 판독",`도면 ${ids.length}장의 부재 구역을 AI가 나눕니다. 이미 나눈 구역은 바뀝니다.`))aiZones(ids)};
+/* 구역 모드 옆 패널: 구역 목록 */
+function renderZonePanel(){const pg=curPage(),el=$("list");$("listTitle").textContent="부재 구역";if(!pg){el.innerHTML="";return}
+ const bands=pg.bands||[],zs=pg.zones||[];$("listCount").textContent=`띠 ${bands.length} · 작은 구역 ${zs.length}`;$("sum").innerHTML='<span class="muted">손상을 그리면 그 자리의 구역 이름이 손상위치(부재)에 자동으로 들어가요.</span>';
+ let h="";if(!bands.length&&!zs.length)h=`<div class="muted" style="padding:12px;line-height:1.6">① 위의 <b>▤ 띠로 나누기</b>를 누르고 도면 그림 테두리를 대각선으로 감싸세요.<br>② 가로선·세로선을 끌어 위치를 맞추고, 칸을 톡 눌러 이름을 정하세요.<br>③ 배수구 같은 작은 부재는 <b>□ 작은 구역</b>으로 따로 감싸세요.</div>`;
+ bands.forEach((b,bi)=>{const cells=bandCells(b);h+=`<div style="padding:8px 10px;border-bottom:1px solid var(--line)"><div class="row" style="margin-bottom:6px"><b style="flex:1">띠 묶음 ${bi+1}</b><button class="btn" data-addh="${b.id}" style="padding:4px 8px;font-size:12px">＋가로선</button><button class="btn" data-addv="${b.id}" style="padding:4px 8px;font-size:12px">＋세로선</button><button class="btn dng" data-delb="${b.id}" style="padding:4px 8px;font-size:12px">삭제</button></div>`+
+  cells.map(c=>`<div class="row" data-selcell="${b.id}:${c.r}:${c.c}" style="padding:4px 2px;cursor:pointer;${S.zsel&&S.zsel.t==="cell"&&S.zsel.band===b.id&&S.zsel.r===c.r&&S.zsel.c===c.c?"background:#fef9c3;":""}"><span style="width:12px;height:12px;border-radius:3px;background:${c.name?zcol(c.name):"#cbd5e1"}"></span><span style="flex:1">${(b.vs||[]).length?`${c.r+1}행 ${c.c+1}열`:`${c.r+1}번째 띠`} · <b>${esc(c.name||"이름 없음")}</b></span><button class="btn" data-rncell="${b.id}:${c.r}:${c.c}" style="padding:3px 8px;font-size:12px">이름</button></div>`).join("")+`</div>`});
+ if(zs.length)h+=`<div style="padding:8px 10px"><b>작은 구역</b>`+zs.map(z=>`<div class="row" data-selzone="${z.id}" style="padding:4px 2px;cursor:pointer;${S.zsel&&S.zsel.t==="zone"&&S.zsel.id===z.id?"background:#fef9c3;":""}"><span style="width:12px;height:12px;border-radius:3px;background:${zcol(z.name)}"></span><b style="flex:1">${esc(z.name)}</b><button class="btn" data-rnzone="${z.id}" style="padding:3px 8px;font-size:12px">이름</button><button class="btn dng" data-delzone="${z.id}" style="padding:3px 8px;font-size:12px">삭제</button></div>`).join("")+`</div>`;
+ if(S.zsel&&S.zsel.t==="cut")h=`<div style="padding:8px 10px;background:#fef9c3" class="row"><span style="flex:1">선택한 ${S.zsel.dir==="h"?"가로":"세로"}선</span><button class="btn dng" id="zDelCut" style="padding:4px 10px">선 삭제</button></div>`+h;
+ el.innerHTML=h;
+ el.querySelectorAll("[data-addh]").forEach(x=>x.onclick=()=>addCut(curPage(),x.dataset.addh,"h"));el.querySelectorAll("[data-addv]").forEach(x=>x.onclick=()=>addCut(curPage(),x.dataset.addv,"v"));
+ el.querySelectorAll("[data-delb]").forEach(x=>x.onclick=async()=>{if(await confirmBox("띠 묶음 삭제","이 띠 묶음을 지울까요?")){const pg=curPage();S.zsel=null;await savePageZ(pg,{bands:(pg.bands||[]).filter(b=>b.id!==x.dataset.delb)})}});
+ el.querySelectorAll("[data-selcell]").forEach(x=>x.onclick=e=>{if(e.target.closest("button"))return;const[b,r,c]=x.dataset.selcell.split(":");S.zsel={t:"cell",band:b,r:+r,c:+c};renderMarks();renderZonePanel()});
+ el.querySelectorAll("[data-rncell]").forEach(x=>x.onclick=()=>{const[b,r,c]=x.dataset.rncell.split(":");renameCell(curPage(),b,+r,+c)});
+ el.querySelectorAll("[data-selzone]").forEach(x=>x.onclick=e=>{if(e.target.closest("button"))return;S.zsel={t:"zone",id:x.dataset.selzone};renderMarks();renderZonePanel()});
+ el.querySelectorAll("[data-rnzone]").forEach(x=>x.onclick=()=>{const pg=curPage();const z=(pg.zones||[]).find(q=>q.id===x.dataset.rnzone);if(z)renameZone(pg,z)});
+ el.querySelectorAll("[data-delzone]").forEach(x=>x.onclick=async()=>{const pg=curPage();S.zsel=null;await savePageZ(pg,{zones:(pg.zones||[]).filter(z=>z.id!==x.dataset.delzone)})});
+ const dc=$("zDelCut");if(dc)dc.onclick=()=>{const s=S.zsel;delCut(curPage(),s.band,s.dir,s.i)}}
+/* AI: 구역 모양은 그리지 않고 부재 이름 목록만 */
+const NAMES_PROMPT=`이 이미지는 시설물 외관조사망도입니다. 손상을 그려 넣는 도면 그림 영역에 나오는 부재(조사 대상 부위)의 이름을 모두 나열하세요. 망도에 적힌 표기(예: "교면포장", "난간및연석", "배수구", "신축이음", "4차로" 같은 차로 표기는 제외)를 우선하고, 표제란·범례·손상물량표 글자는 제외합니다. 망도에 글자가 없으면 그림으로 판단해 표준 명칭(교면포장, 난간및연석, 배수시설, 신축이음, 바닥판, 거더, 가로보, 교량받침, 흉벽, 구체, 날개벽, 기초, 코핑, 기둥, 라이닝 등)을 쓰세요. 위에서 아래(또는 왼쪽에서 오른쪽) 순서로. JSON 하나만 출력: {"members":["난간및연석","교면포장","난간및연석"]}`;
+async function aiNames(ids){if(!aiReady()){toast("이 화면에서는 AI를 쓸 수 없어요",4000);return}let i=0,done=0,fail=0;progress(`부재 이름 판독 0/${ids.length}`,0);
+ const work=async id=>{try{const pg=S.pages.get(id);if(!pg||pg.isDrawing===false)return;const bm=await pageBitmap(pg);const r=await aiJson(NAMES_PROMPT,await cropBlob(bm,0,0,bm.width,bm.height,1568));bm.close&&bm.close();
+   const ms=[...new Set((r.members||[]).map(v=>String(v).trim()).filter(Boolean))];if(ms.length)await savePage({...S.pages.get(id),memberNames:ms})}catch(e){console.warn(e);fail++}done++;progress(`부재 이름 판독 ${done}/${ids.length}`,done/ids.length)};
+ await Promise.all([0,1,2].map(async()=>{while(i<ids.length)await work(ids[i++])}));progress(null);renderList();const pg=curPage();
+ toast(`부재 이름 판독 완료${fail?` (실패 ${fail}장)`:""}${pg&&pg.memberNames?" — 이 도면: "+pg.memberNames.join(", "):""}`,6000)}
+$("zAi").onclick=()=>{const pg=curPage();if(pg)aiNames([pg.id])};
+$("zAiAll").onclick=async()=>{const ids=sortedPages().filter(p=>p.isDrawing!==false).map(p=>p.id);if(await confirmBox("부재 이름 판독",`도면 ${ids.length}장에서 부재 이름 목록을 AI가 읽습니다.`))aiNames(ids)};
 /* ───────── 시작 ───────── */
 function init(){
  const t=ls("ins.tool");if(t&&legend().some(l=>l.k===t))S.tool=t;const mc=ls("ins.mc");if(mc&&MEMO_COLORS.includes(mc))S.memoColor=mc;
