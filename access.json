@@ -3,13 +3,6 @@
  "iter": 100000,
  "users": [
   {
-   "salt": "a49f1dd40eef0752",
-   "h": "ee43d5e660940376896909e23e493af828541d24eda5ce9ae3dffbba9ba48c24",
-   "active": true,
-   "added": "2026-11-16T06:47:18.440452Z",
-   "id": "차륭"
-  },
-  {
    "id": "이석배",
    "active": true,
    "added": "2026-11-16T07:17:55.552Z",
