@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#2563eb">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script>window.STANDALONE=true;window.APP_VERSION="202611161424";
+<script>window.STANDALONE=true;window.APP_VERSION="202611161433";
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 
 <script src="lib/pdf.min.js"></script>
@@ -700,6 +700,7 @@ async function finishStroke(st){
   if(m.geom==="point"||tap){part=[r1(st.pts[0][0]),r1(st.pts[0][1])]}
   else if(m.geom==="area"&&isDiagonal(st.pts)){const a=st.pts[0],b=st.pts[st.pts.length-1];const x0=r1(Math.min(a[0],b[0])),x1=r1(Math.max(a[0],b[0])),y0=r1(Math.min(a[1],b[1])),y1=r1(Math.max(a[1],b[1]));part=[x0,y0,x1,y0,x1,y1,x0,y1]}
   else{part=rdp(st.pts,Math.max(0.3,0.8/S.view.s)).flatMap(q=>[r1(q[0]),r1(q[1])])}
+  part=fitPartSize(m,part,tap);
   const parts=(m.parts||[]).concat([part]);await saveMark({...m,parts,cnt:String(1+parts.length),updatedAt:Date.now()});multiBarUpd();return}
  if(S.mode==="memo"&&!scaleMode){const eps=Math.max(0.2,0.5/S.view.s);let pts=st.pts.length<2?[st.pts[0],[st.pts[0][0]+0.5,st.pts[0][1]+0.5]]:rdp(st.pts,eps);
   await saveMark({id:uid(),page:pg.id,origin:"memo",kind:"pen",pts:pts.flatMap(q=>[r1(q[0]),r1(q[1])]),color:S.memoColor,w:Math.max(0.6,1.4/Math.max(1,S.view.s/2)),author:ls("ins.author")||"",createdAt:Date.now()});return}
@@ -1456,6 +1457,17 @@ async function aiNames(ids){if(!aiReady()){toast("이 화면에서는 AI를 쓸 
 $("zAi").onclick=()=>{const pg=curPage();if(pg)aiNames([pg.id])};
 $("zAiAll").onclick=async()=>{const ids=sortedPages().filter(p=>p.isDrawing!==false).map(p=>p.id);if(await confirmBox("부재 이름 판독",`도면 ${ids.length}장에서 부재 이름 목록을 AI가 읽습니다.`))aiNames(ids)};
 /* 같은 손상 여러 개 (한 번호로 묶고 개소 자동 증가) */
+/* 묶음의 추가 손상은 모양은 그린 대로, 크기는 첫 손상과 같게 맞춤 */
+const plen=p=>{let L=0;for(let i=2;i<p.length;i+=2)L+=Math.hypot(p[i]-p[i-2],p[i+1]-p[i-1]);return L};
+const bbox=p=>{const xs=p.filter((_,i)=>i%2===0),ys=p.filter((_,i)=>i%2===1);return[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)]};
+function scaleAbout(p,cx,cy,k){return p.map((v,i)=>r1(i%2===0?cx+(v-cx)*k:cy+(v-cy)*k))}
+function fitPartSize(m,part,tap){const base=m.pts||[];if(base.length<4||m.geom==="point")return part;const[cx0,cy0]=centroid(base);
+ if(tap||part.length===2){const[tx,ty]=[part[0],part[1]];return base.map((v,i)=>r1(i%2===0?v-cx0+tx:v-cy0+ty))}
+ const[cx,cy]=centroid(part);
+ if(m.geom==="line"){const bl=plen(base),l=plen(part);return l>0?scaleAbout(part,cx,cy,bl/l):part}
+ const bb=bbox(base),pb=bbox(part);const bw=bb[2]-bb[0],bh=bb[3]-bb[1],pw=pb[2]-pb[0],ph=pb[3]-pb[1];
+ if(part.length===8&&part[1]===part[3]&&part[0]===part[6]){const x0=r1(cx-bw/2),x1=r1(cx+bw/2),y0=r1(cy-bh/2),y1=r1(cy+bh/2);return[x0,y0,x1,y0,x1,y1,x0,y1]}
+ const k=Math.sqrt((bw*bh)/Math.max(1e-6,pw*ph));return scaleAbout(part,cx,cy,k)}
 function startMulti(id){const m=S.marks.get(id);if(!m)return;S.multi=id;S.mode="draw";renderTools();multiBarUpd();$("multiBar").style.display="flex";hint("같은 크기의 손상 위치를 계속 그리세요 · 끝나면 완료",4000)}
 function stopMulti(){S.multi=null;$("multiBar").style.display="none"}
 function multiBarUpd(){const m=S.marks.get(S.multi);if(!m){stopMulti();return}$("multiTxt").textContent=`${markNo(m)}번 ${m.desc||lg(m.type).n} 묶음 그리는 중 · ${1+(m.parts||[]).length}개`}
