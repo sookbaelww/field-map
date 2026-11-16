@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#2563eb">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script>window.STANDALONE=true;window.APP_VERSION="202611161417";
+<script>window.STANDALONE=true;window.APP_VERSION="202611161424";
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 
 <script src="lib/pdf.min.js"></script>
@@ -114,6 +114,7 @@ table.dl tr{cursor:pointer}
     <div id="content"><img id="pimg" alt=""><svg id="ov" xmlns="http://www.w3.org/2000/svg"></svg></div>
     <div id="empty"></div>
     <div id="hint"></div>
+    <div id="multiBar" style="position:absolute;left:50%;top:10px;transform:translateX(-50%);display:none;gap:8px;align-items:center;z-index:6;background:#111827;color:#fff;border-radius:12px;padding:6px 8px 6px 14px;font-size:14px"><span id="multiTxt"></span><button class="btn" id="multiUndo" style="padding:6px 10px">마지막 지우기</button><button class="btn" id="multiDone" style="padding:6px 12px;background:#fde047;border-color:#fde047;color:#111827;font-weight:700">완료</button></div>
     <div id="zoneBar" style="position:absolute;left:10px;top:10px;display:none;gap:6px;flex-wrap:wrap;z-index:5"><button class="btn" id="zBand">▤ 띠로 나누기</button><button class="btn" id="zBox">□ 작은 구역</button><button class="btn" id="zAi">🤖 부재 이름 읽기</button><button class="btn" id="zAiAll">🤖 전체 도면</button><button class="btn" id="zCopy">같은 부재 도면에 복사</button><button class="btn dng" id="zClear">구역 지우기</button><button class="btn pri" id="zDone">완료</button></div>
   </div>
   <div id="side">
@@ -143,7 +144,7 @@ table.dl tr{cursor:pointer}
     <div class="f"><label>조사자</label><input id="fAuthor" autocomplete="off"></div>
     <div class="f c3"><label>비고</label><input id="fNote" autocomplete="off"></div>
   </div>
-  <div class="actions"><button class="btn dng" id="fDel">삭제</button><div class="sp"></div><button class="btn" id="fDup" title="같은 자리에 겹친 손상을 하나 더 추가">＋ 중복 손상 추가</button><button class="btn" id="fCancel">취소</button><button class="btn pri" id="fSave">저장</button></div>
+  <div class="actions"><button class="btn dng" id="fDel">삭제</button><div class="sp"></div><button class="btn" id="fMulti" title="같은 크기의 손상을 여러 곳에 그려 한 번호로 묶기">＋ 같은 손상 여러 개</button><button class="btn" id="fDup" title="같은 자리에 겹친 손상을 하나 더 추가">＋ 중복 손상 추가</button><button class="btn" id="fCancel">취소</button><button class="btn pri" id="fSave">저장</button></div>
 </div></div>
 <datalist id="dlLoc"></datalist><datalist id="dlDesc"></datalist>
 
@@ -530,6 +531,7 @@ function showPage(fit){
  const src=pg.asset?("/_blob/"+pg.asset):(S.localUrls[pg.id]||"");
  if($("pimg").getAttribute("src")!==src)$("pimg").src=src;
  if(fit)fitView();
+ if(S.multi){const mm=S.marks.get(S.multi);if(!mm||mm.page!==pg.id)stopMulti()}
  buildTools();renderMarks();renderList();zoneBar();
 }
 function fitView(){const pg=curPage();if(!pg)return;const v=$("view").getBoundingClientRect();const s=Math.min(v.width/pg.w,v.height/pg.h)*0.96;S.view={s,tx:(v.width-pg.w*s)/2,ty:(v.height-pg.h*s)/2};applyView()}
@@ -561,11 +563,13 @@ function markSvg(m,no,sel){
  if(m.geom==="point"){const x=pts[0],y=pts[1];g+=`<circle cx="${x}" cy="${y}" r="1.6" fill="${l.c}"/>`}
  else if(m.geom==="area")g+=`<polygon points="${ptsStr(pts)}" fill="url(#p_${String(l.k).replace(/[^\w-]/g,"_")})" stroke="${l.c}" stroke-width="${sw}" stroke-linejoin="round"/>`;
  else g+=`<polyline points="${ptsStr(pts)}" fill="none" stroke="${l.c}" stroke-width="${sw*1.2}" stroke-linecap="round" stroke-linejoin="round" ${l.dash?`stroke-dasharray="${l.dash}"`:""}/>`;
+ (m.parts||[]).forEach(pp=>{if(!pp||pp.length<2)return;if(pp.length===2)g+=`<circle cx="${pp[0]}" cy="${pp[1]}" r="1.6" fill="${l.c}"/>`;else if(m.geom==="area")g+=`<polygon points="${ptsStr(pp)}" fill="url(#p_${String(l.k).replace(/[^\w-]/g,"_")})" stroke="${l.c}" stroke-width="${sw}" stroke-linejoin="round"/>`;else g+=`<polyline points="${ptsStr(pp)}" fill="none" stroke="${l.c}" stroke-width="${sw*1.2}" stroke-linecap="round" stroke-linejoin="round" ${l.dash?`stroke-dasharray="${l.dash}"`:""}/>`});
  // 지시선 + 번호
  const[bx,by]=m.badge||[pts[0]+8,pts[1]-8];const anc=nearestPt(pts,bx,by);
  g+=`<line x1="${anc[0]}" y1="${anc[1]}" x2="${bx}" y2="${by}" stroke="#111" stroke-width="0.5"/>`;
- g+=`<g class="badge" data-badge="${m.id}" style="cursor:move"><circle cx="${bx}" cy="${by}" r="5" fill="${sel?"#fde047":"#fff"}" stroke="#111" stroke-width="0.8"/><text x="${bx}" y="${by+2.2}" font-size="6.2" font-weight="700" text-anchor="middle" font-family="Arial">${no}</text></g>`;
- const hit=m.geom==="point"?`<circle cx="${pts[0]}" cy="${pts[1]}" r="6" fill="transparent"/>`:m.geom==="area"?`<polygon points="${ptsStr(pts)}" fill="transparent" stroke="transparent" stroke-width="6"/>`:`<polyline points="${ptsStr(pts)}" fill="none" stroke="transparent" stroke-width="8"/>`;
+ g+=`<g class="badge" data-badge="${m.id}" style="cursor:move"><circle cx="${bx}" cy="${by}" r="5" fill="${sel?"#fde047":"#fff"}" stroke="#111" stroke-width="0.8"/><text x="${bx}" y="${by+2.2}" font-size="6.2" font-weight="700" text-anchor="middle" font-family="Arial">${no}</text>${(m.parts||[]).length?`<text x="${bx+7}" y="${by+2}" font-size="5" font-weight="700" fill="${l.c}" font-family="Arial">(${1+m.parts.length}EA)</text>`:""}</g>`;
+ const hitP=(m.parts||[]).map(pp=>pp.length===2?`<circle cx="${pp[0]}" cy="${pp[1]}" r="6" fill="transparent"/>`:`<polyline points="${ptsStr(pp)}" fill="none" stroke="transparent" stroke-width="8"/>`).join("");
+ const hit=hitP+(m.geom==="point"?`<circle cx="${pts[0]}" cy="${pts[1]}" r="6" fill="transparent"/>`:m.geom==="area"?`<polygon points="${ptsStr(pts)}" fill="transparent" stroke="transparent" stroke-width="6"/>`:`<polyline points="${ptsStr(pts)}" fill="none" stroke="transparent" stroke-width="8"/>`);
  return`<g data-id="${m.id}"${sel?' class="selm"':""}>${hit}${sel&&m.geom!=="point"?`<polyline points="${ptsStr(m.geom==="area"?pts.concat(pts.slice(0,2)):pts)}" fill="none" stroke="#facc15" stroke-width="4" stroke-opacity=".55"/>`:""}${g}</g>`;
 }
 function nearestPt(pts,x,y){let best=[pts[0],pts[1]],bd=1e18;for(let i=0;i<pts.length;i+=2){const d=(pts[i]-x)**2+(pts[i+1]-y)**2;if(d<bd){bd=d;best=[pts[i],pts[i+1]]}}return best}
@@ -606,7 +610,7 @@ function focusMark(id){const m=S.marks.get(id);if(!m||!m.pts||m.pts.length<2)ret
 const view=$("view");const ptrs=new Map();let stroke=null,pinch=null,pan=null,badgeDrag=null,tapSel=null,scaleMode=false,cropMode=null,pinMode=null,lp=null;
 function toPage(cx,cy){const r=view.getBoundingClientRect();return[(cx-r.left-S.view.tx)/S.view.s,(cy-r.top-S.view.ty)/S.view.s]}
 view.addEventListener("pointerdown",e=>{
- if(e.target.closest&&e.target.closest("#zoneBar"))return;
+ if(e.target.closest&&e.target.closest("#zoneBar,#multiBar"))return;
  if(!curPage())return;
  const isPen=e.pointerType==="pen",isMouse=e.pointerType==="mouse",isTouch=e.pointerType==="touch";
  if(stroke&&isTouch)return; // 손바닥 무시
@@ -691,6 +695,12 @@ async function finishStroke(st){
   if(S.zTool==="band"){const ns=(cur.memberNames||[]);const names={"0:0":ns[0]||"난간및연석","1:0":ns.length>2?ns[1]:(cur.member||"교면포장"),"2:0":ns.length>2?ns[ns.length-1]:"난간및연석"};
    await savePageZ(cur,{bands:(cur.bands||[]).concat([{id:"B"+uid().slice(0,8),box,hs:[0.1,0.9],vs:[],names}])});S.zTool="box";zoneBar();hint("가로선을 끌어 띠 폭을 맞추고, 칸을 톡 눌러 이름을 정하세요",5000);return}
   const v=await nameAsk(cur,"작은 구역 이름","");if(v&&v.trim()){await savePageZ(cur,{zones:(cur.zones||[]).concat([{id:"Z"+uid().slice(0,8),name:v.trim(),box}])})}return}
+ if(S.multi&&S.mode==="draw"&&!scaleMode){const m=S.marks.get(S.multi);if(!m||m.page!==pg.id){stopMulti();toast("다른 도면이라 묶음 그리기를 끝냈어요");return}
+  const tap=st.pts.length<3&&Math.hypot(st.pts[st.pts.length-1][0]-st.pts[0][0],st.pts[st.pts.length-1][1]-st.pts[0][1])*S.view.s<6;let part;
+  if(m.geom==="point"||tap){part=[r1(st.pts[0][0]),r1(st.pts[0][1])]}
+  else if(m.geom==="area"&&isDiagonal(st.pts)){const a=st.pts[0],b=st.pts[st.pts.length-1];const x0=r1(Math.min(a[0],b[0])),x1=r1(Math.max(a[0],b[0])),y0=r1(Math.min(a[1],b[1])),y1=r1(Math.max(a[1],b[1]));part=[x0,y0,x1,y0,x1,y1,x0,y1]}
+  else{part=rdp(st.pts,Math.max(0.3,0.8/S.view.s)).flatMap(q=>[r1(q[0]),r1(q[1])])}
+  const parts=(m.parts||[]).concat([part]);await saveMark({...m,parts,cnt:String(1+parts.length),updatedAt:Date.now()});multiBarUpd();return}
  if(S.mode==="memo"&&!scaleMode){const eps=Math.max(0.2,0.5/S.view.s);let pts=st.pts.length<2?[st.pts[0],[st.pts[0][0]+0.5,st.pts[0][1]+0.5]]:rdp(st.pts,eps);
   await saveMark({id:uid(),page:pg.id,origin:"memo",kind:"pen",pts:pts.flatMap(q=>[r1(q[0]),r1(q[1])]),color:S.memoColor,w:Math.max(0.6,1.4/Math.max(1,S.view.s/2)),author:ls("ins.author")||"",createdAt:Date.now()});return}
  const moved=Math.hypot(st.pts[st.pts.length-1][0]-st.pts[0][0],st.pts[st.pts.length-1][1]-st.pts[0][1])*S.view.s;
@@ -730,6 +740,7 @@ function buildForm(){
  $("fPin").onclick=async()=>{const id=S.editing&&S.editing.id;if(!id)return;await saveForm();pinMode=id;hint("이 기존 손상의 번호 위치를 도면에서 톡 찍으세요",5000)};
  $("fCancel").onclick=()=>{closeM("mMark");S.editing=null};
  $("fSave").onclick=saveForm;
+ $("fMulti").onclick=async()=>{const m=await saveForm();if(m&&m.origin!=="existing")startMulti(m.id)};
  $("fDup").onclick=async()=>{const base=await saveForm();if(!base)return;addDuplicate(base)};
  $("fDel").onclick=async()=>{const m=S.editing;if(!m||m._new)return;
   if(m.origin==="existing"){const cur=S.marks.get(m.id);if(!cur)return;if(cur.deleted){closeM("mMark");await saveMark({...cur,deleted:false,updatedAt:Date.now()});toast(`기존 ${cur.oldNo}번을 복원했어요`);return}
@@ -986,6 +997,7 @@ function buildDxf(pages){
    if(m.origin==="existing"){if(pts.length>=2){g(0,"CIRCLE",8,"EXISTING",10,X(pts[0]),20,Y(pts[1]),30,0,40,f(7.5*MM));g(0,"TEXT",8,"EXISTING",10,X(pts[0]),20,Y(pts[1]+12),30,0,40,f(2*MM),1,dxfStr((m.check||"미확인")+(no&&no!==String(m.oldNo)?" →"+no:"")),72,1,73,2,11,X(pts[0]),21,Y(pts[1]+12),31,0)}return}
    if(!no||pts.length<2)return;
    if(m.geom==="point")g(0,"CIRCLE",8,ly,10,X(pts[0]),20,Y(pts[1]),30,0,40,f(0.8));else poly(ly,pts,m.geom==="area");
+   (m.parts||[]).forEach(pp=>{if(pp.length===2)g(0,"CIRCLE",8,ly,10,X(pp[0]),20,Y(pp[1]),30,0,40,f(0.8));else poly(ly,pp,m.geom==="area")});
    const[bx,by]=m.badge||[pts[0]+8,pts[1]-8];const a=nearestPt(pts,bx,by);
    g(0,"LINE",8,"LEADER",10,X(a[0]),20,Y(a[1]),30,0,11,X(bx),21,Y(by),31,0);
    g(0,"CIRCLE",8,"NUMBER",10,X(bx),20,Y(by),30,0,40,f(5*MM));
@@ -1443,6 +1455,12 @@ async function aiNames(ids){if(!aiReady()){toast("이 화면에서는 AI를 쓸 
  toast(`부재 이름 판독 완료${fail?` (실패 ${fail}장)`:""}${pg&&pg.memberNames?" — 이 도면: "+pg.memberNames.join(", "):""}`,6000)}
 $("zAi").onclick=()=>{const pg=curPage();if(pg)aiNames([pg.id])};
 $("zAiAll").onclick=async()=>{const ids=sortedPages().filter(p=>p.isDrawing!==false).map(p=>p.id);if(await confirmBox("부재 이름 판독",`도면 ${ids.length}장에서 부재 이름 목록을 AI가 읽습니다.`))aiNames(ids)};
+/* 같은 손상 여러 개 (한 번호로 묶고 개소 자동 증가) */
+function startMulti(id){const m=S.marks.get(id);if(!m)return;S.multi=id;S.mode="draw";renderTools();multiBarUpd();$("multiBar").style.display="flex";hint("같은 크기의 손상 위치를 계속 그리세요 · 끝나면 완료",4000)}
+function stopMulti(){S.multi=null;$("multiBar").style.display="none"}
+function multiBarUpd(){const m=S.marks.get(S.multi);if(!m){stopMulti();return}$("multiTxt").textContent=`${markNo(m)}번 ${m.desc||lg(m.type).n} 묶음 그리는 중 · ${1+(m.parts||[]).length}개`}
+$("multiDone").onclick=()=>{const m=S.marks.get(S.multi);stopMulti();if(m)toast(`${markNo(m)}번 ${m.desc||""}: ${m.cnt}개소로 저장했어요`)};
+$("multiUndo").onclick=async()=>{const m=S.marks.get(S.multi);if(!m||!(m.parts||[]).length)return;const parts=m.parts.slice(0,-1);await saveMark({...m,parts,cnt:String(1+parts.length),updatedAt:Date.now()});multiBarUpd()};
 /* ───────── 시작 ───────── */
 function init(){
  const t=ls("ins.tool");if(t&&legend().some(l=>l.k===t))S.tool=t;const mc=ls("ins.mc");if(mc&&MEMO_COLORS.includes(mc))S.memoColor=mc;
