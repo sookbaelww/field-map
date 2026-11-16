@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#2563eb">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script>window.STANDALONE=true;window.APP_VERSION="202611161528";
+<script>window.STANDALONE=true;window.APP_VERSION="202611161530";
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 
 <script src="lib/pdf.min.js"></script>
@@ -462,7 +462,7 @@ function buildTools(){
  h+=`<button class="tool" data-mode="pan"><span class="mode">✋</span>이동</button>`;
  h+=`<button class="tool" data-mode="select"><span class="mode">👆</span>선택·수정</button>`;
  h+=`<button class="tool" data-mode="zone"><span class="mode">🧩</span>부재구역</button>`;
- h+=`<button class="tool" data-mode="memo"><span class="mode">✏️</span>메모펜</button><button class="tool" data-mode="text"><span class="mode">🔤</span>글상자</button><button class="tool" data-mode="erase"><span class="mode">🧹</span>범위 지우기</button>`;
+ h+=`<button class="tool" data-mode="memo"><span class="mode">✏️</span>메모펜</button><button class="tool" data-mode="erase"><span class="mode">🧹</span>범위 지우기</button>`;
  h+=`<div style="display:flex;justify-content:center;gap:5px;padding:2px 0" id="memoColors">${MEMO_COLORS.map(c=>`<span data-mc="${c}" style="width:16px;height:16px;border-radius:50%;background:${c};border:2px solid ${c===S.memoColor?"#facc15":"#fff"};box-shadow:0 0 0 1px #9ca3af;cursor:pointer"></span>`).join("")}</div><div class="sep"></div>`;
  const pg=curPage();const mem=pg?pageMemberList(pg):[];const sel=S.memberSel;
  h+=`<div class="muted" style="font-size:10px;text-align:center;margin:2px 0">부재</div><button class="tool" data-mem="" style="${!sel?"border-color:var(--acc);background:#e8efff":""};font-size:11px">전체 범례</button>`;
@@ -974,7 +974,7 @@ function drawTableCanvas(ctx,k,box,cols,rows){const L=tableLayout(box,cols,rows)
  ctx.restore();return rows.length>Math.floor((L.H-L.titleH-L.headH)/L.rh)}
 function overlaySvg(pg,W,H){const nb=numbering(pg.id);let h=`<defs>${defsLegend().filter(l=>l.g==="area").map(l=>patternDef("p_"+String(l.k).replace(/[^\w-]/g,"_"),l,4)).join("")}</defs>`;
  nb.order.forEach(m=>{if(m.origin==="existing"){if(m.deleted)return;if(m.check==="보수됨"&&m.pts&&m.pts.length>=2)h+=repairMarkSvg(m.pts[0],m.pts[1]);const no=nb.map[m.id];if(no&&String(no)!==String(m.oldNo)&&m.pts&&m.pts.length>=2)h+=`<text x="${m.pts[0]+8}" y="${m.pts[1]-6}" font-size="6" fill="#1d4ed8" font-weight="700" font-family="Arial">→${no}</text>`;return}if(nb.map[m.id]&&m.pts&&m.pts.length>=2)h+=markSvg(m,nb.map[m.id],false)});
- pageMemos(pg.id).forEach(m=>h+=memoSvg(m,false));
+  if(S._withMemo)pageMemos(pg.id).forEach(m=>h+=memoSvg(m,false));
  return`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${pg.w} ${pg.h}">${h}</svg>`}
 async function renderFinal(pg,maxDim){const bm=await pageBitmap(pg);const k0=Math.min(1,(maxDim||4000)/Math.max(bm.width,bm.height));
  const cv=document.createElement("canvas");cv.width=Math.round(bm.width*k0);cv.height=Math.round(bm.height*k0);const ctx=cv.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,cv.width,cv.height);ctx.drawImage(bm,0,0,cv.width,cv.height);bm.close&&bm.close();
@@ -994,7 +994,7 @@ $("ePdf").onclick=async()=>{const p=P(),ps=sortedPages().filter(pg=>pg.isDrawing
  catch(e){progress(null);toast("PDF 만들기 실패: "+(e.message||e),6000)}};
 /* DXF (R12, 지스타캐드/오토캐드 호환) */
 function dxfStr(s){let o="";for(const ch of String(s)){const c=ch.codePointAt(0);o+=c<128?ch:"\\U+"+c.toString(16).toUpperCase().padStart(4,"0")}return o}
-function buildDxf(pages){
+function buildDxf(pages,memoOnly){
  const MM=25.4/72;const L=[];const ent=[];
  const LGS=legend();const layName=(l,i)=>"DMG_"+String(i+1).padStart(2,"0")+(/^[a-z]+$/.test(l.k)?"_"+l.k.toUpperCase():"");
  const layers=[["0",7],["FRAME",8],["NUMBER",7],["LEADER",7],["LABEL",9],["DMG_ETC",7],["EXISTING",30],["TABLE",7],["MEMO",1]].concat(LGS.map((l,i)=>[layName(l,i),l.aci||7]));
@@ -1007,7 +1007,7 @@ function buildDxf(pages){
   const poly=(layer,pts,closed)=>{g(0,"POLYLINE",8,layer,66,1,70,closed?1:0,10,0,20,0,30,0);for(let i=0;i<pts.length;i+=2)g(0,"VERTEX",8,layer,10,X(pts[i]),20,Y(pts[i+1]),30,0);g(0,"SEQEND",8,layer)};
   poly("FRAME",[0,0,pg.w,0,pg.w,pg.h,0,pg.h],true);
   g(0,"TEXT",8,"FRAME",10,f(ox),20,f(H+4),30,0,40,5,1,dxfStr(pg.name||"도면"));
-  const nb=numbering(pg.id);nb.order.forEach(m=>{const no=nb.map[m.id];const ly=lay(m.type);const pts=m.pts||[];
+  const nb=numbering(pg.id);if(!memoOnly)nb.order.forEach(m=>{const no=nb.map[m.id];const ly=lay(m.type);const pts=m.pts||[];
    if(m.origin==="existing"){if(pts.length>=2){g(0,"CIRCLE",8,"EXISTING",10,X(pts[0]),20,Y(pts[1]),30,0,40,f(7.5*MM));g(0,"TEXT",8,"EXISTING",10,X(pts[0]),20,Y(pts[1]+12),30,0,40,f(2*MM),1,dxfStr((m.check||"변화없음")+(no&&no!==String(m.oldNo)?" →"+no:"")),72,1,73,2,11,X(pts[0]),21,Y(pts[1]+12),31,0)}return}
    if(!no||pts.length<2)return;
    if(m.geom==="point")g(0,"CIRCLE",8,ly,10,X(pts[0]),20,Y(pts[1]),30,0,40,f(0.8));else poly(ly,pts,m.geom==="area");
@@ -1019,8 +1019,8 @@ function buildDxf(pages){
    const lab=[m.desc,m.w?m.w+"mm":"",num(m.l)!=null?(m.l+(num(m.b)!=null?"x"+m.b:"")+"m"):"",m.photo?"사진"+m.photo:""].filter(Boolean).join(" ");
    g(0,"TEXT",8,"LABEL",10,f(ox+bx*MM+6*MM),20,Y(by+1),30,0,40,f(2*MM),1,dxfStr(lab));
   });
-  pageMemos(pg.id).forEach(m=>{const p=m.pts||[];if(p.length<2)return;if(m.kind==="text")String(m.text||"").split(/\n/).forEach((t,i)=>g(0,"TEXT",8,"MEMO",10,X(p[0]),20,Y(p[1]+i*(m.size||8)*1.25),30,0,40,f((m.size||8)*MM*0.8),1,dxfStr(t)));else poly("MEMO",p,false)});
-  if(pg.ai&&pg.ai.tableBox){const bb=pg.ai.tableBox.map(v=>v/1000);const box=[bb[0]*pg.w,bb[1]*pg.h,bb[2]*pg.w,bb[3]*pg.h];const t=pageTable(pg);const L=tableLayout(box,t.cols,t.rows);
+  if(memoOnly)pageMemos(pg.id).forEach(m=>{const p=m.pts||[];if(p.length<2)return;if(m.kind==="text")String(m.text||"").split(/\n/).forEach((t,i)=>g(0,"TEXT",8,"MEMO",10,X(p[0]),20,Y(p[1]+i*(m.size||8)*1.25),30,0,40,f((m.size||8)*MM*0.8),1,dxfStr(t)));else poly("MEMO",p,false)});
+  if(!memoOnly&&pg.ai&&pg.ai.tableBox){const bb=pg.ai.tableBox.map(v=>v/1000);const box=[bb[0]*pg.w,bb[1]*pg.h,bb[2]*pg.w,bb[3]*pg.h];const t=pageTable(pg);const L=tableLayout(box,t.cols,t.rows);
    const ln=(xa,ya,xb,yb)=>g(0,"LINE",8,"TABLE",10,X(xa),20,Y(ya),30,0,11,X(xb),21,Y(yb),31,0);
    const tx=(x,y,str,hgt,wmax)=>{const s2=String(str??"");if(!s2)return;let h2=hgt*MM;const est=[...s2].reduce((a,ch)=>a+(/[\u3131-\uD79D]/.test(ch)?1:0.6),0)*h2;if(est>wmax*MM*0.92)h2*=wmax*MM*0.92/est;g(0,"TEXT",8,"TABLE",10,X(x),20,Y(y),30,0,40,f(h2),1,dxfStr(s2),72,1,73,2,11,X(x),21,Y(y),31,0)};
    const top=L.y0+L.titleH,bot=L.y0+L.H;tx(L.x0+L.W/2,L.y0+L.titleH/2,"손 상 물 량 표",L.titleH*0.55,L.W);
@@ -1043,6 +1043,11 @@ $("eDxf").onclick=async()=>{
  zip.file(`00_전체도면_한파일.dxf`,buildDxf(ps));
  const legTxt="레이어 안내\r\n"+legend().map((l,i)=>`DMG_${String(i+1).padStart(2,"0")}${/^[a-z]+$/.test(l.k)?"_"+l.k.toUpperCase():""}\t${l.n}\t색상 ${l.aci||7}`).join("\r\n")+"\r\nFRAME\t도면 테두리(PDF 용지 크기, 단위 mm)\r\nNUMBER\t손상번호\r\nLEADER\t지시선\r\nLABEL\t손상내용·규격·사진번호 메모(필요없으면 끄기)\r\nTABLE\t손상물량표(기존+신규, 망도 물량표 위치에 맞춤)\r\nEXISTING\t기존 손상 현장확인 표시\r\n\r\n사용법: 망도 DWG 도면틀의 두 모서리와 FRAME 사각형의 두 모서리를 ALIGN 명령으로 맞추면 손상 위치가 그대로 겹칩니다.\r\n";
  zip.file("레이어_안내.txt",legTxt);
+ const mp=sortedPages().filter(pg=>pageMemos(pg.id).some(m=>(m.pts||[]).length>=2));
+ if(mp.length){const dir=zip.folder("메모_참고용(도면에 합치지 마세요)");
+  dir.file("읽어주세요.txt","현장 조사자가 남긴 메모입니다. 캐드 작업 참고용이며 최종 도면에는 넣지 않습니다.\r\n- 메모만_*.dxf : 메모만 담긴 도면. 본 도면과 같은 좌표라 참조(XREF)로 겹쳐 보거나 따로 열어 보세요.\r\n- *.png : 도면 위에 메모를 겹친 그림");
+  for(const [i,pg] of mp.entries()){const nm=`${String(i+1).padStart(2,"0")}_${safe(pg.name)}`;dir.file(`메모만_${nm}.dxf`,buildDxf([pg],true));
+   try{S._withMemo=true;const r=await renderFinal(pg,2500);const b=await new Promise(res=>r.cv.toBlob(res,"image/png"));dir.file(`${nm}.png`,b)}catch(e){}finally{S._withMemo=false}}}
  const blob=await zip.generateAsync({type:"blob"});
  await saveFile(`${p.name}_망도DXF_${stamp()}.zip`,blob);
 };
