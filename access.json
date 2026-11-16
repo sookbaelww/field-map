@@ -3,18 +3,20 @@
  "iter": 100000,
  "users": [
   {
-   "name": "차륭",
    "salt": "26bd46601e25a9d3",
    "h": "747bff9be82a75a9c8663264857342162cbab3c3a27d53dcd0067aff3583e7b5",
    "active": true,
-   "added": "2026-11-16T06:47:18.440452Z"
+   "added": "2026-11-16T06:47:18.440452Z",
+   "id": "차륭",
+   "legacy": true
   },
   {
-   "name": "김현겸",
    "salt": "60d2ab4ab72a450a",
    "h": "3de030da869a76684b7264ada88b2bb9a8dcdef2a675de730eed8311210a56ef",
    "active": true,
-   "added": "2026-11-16T06:56:45.262Z"
+   "added": "2026-11-16T06:56:45.262Z",
+   "id": "김현겸",
+   "legacy": true
   }
  ]
 }
