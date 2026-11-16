@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="gate.js"></script>
-<script>window.STANDALONE=true;window.APP_VERSION="202611161733";
+<script>window.STANDALONE=true;window.APP_VERSION="202611161745";
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 
 <script src="lib/pdf.min.js"></script>
@@ -472,7 +472,7 @@ function buildTools(){
  h+=`<button class="tool" data-mode="select"><span class="mode">👆</span>선택·수정</button>`;
  h+=`<button class="tool" data-mode="zone"><span class="mode">🧩</span>부재구역</button>`;
  h+=`<button class="tool" data-mode="memo"><span class="mode">✏️</span>메모펜</button><button class="tool" data-mode="erase"><span class="mode">🧹</span>범위 지우기</button>`;
- h+=`<div style="display:flex;justify-content:center;gap:5px;padding:2px 0" id="memoColors">${MEMO_COLORS.map(c=>`<span data-mc="${c}" style="width:16px;height:16px;border-radius:50%;background:${c};border:2px solid ${c===S.memoColor?"#facc15":"#fff"};box-shadow:0 0 0 1px #9ca3af;cursor:pointer"></span>`).join("")}</div><div id="areaModeW" style="display:none;text-align:center;padding:2px 0"><div class="muted" style="font-size:10px">면적 그리기</div><div style="display:flex;gap:3px;justify-content:center"><button class="btn" data-am="rect" style="padding:4px 7px;font-size:12px">▭ 네모</button><button class="btn" data-am="free" style="padding:4px 7px;font-size:12px">✎ 자유</button></div></div><div class="sep"></div>`;
+ h+=`<div style="display:flex;justify-content:center;gap:5px;padding:2px 0" id="memoColors">${MEMO_COLORS.map(c=>`<span data-mc="${c}" style="width:16px;height:16px;border-radius:50%;background:${c};border:2px solid ${c===S.memoColor?"#facc15":"#fff"};box-shadow:0 0 0 1px #9ca3af;cursor:pointer"></span>`).join("")}</div><div id="areaModeW" style="display:none;text-align:center;padding:2px 0"><div class="muted" style="font-size:10px">면적 그리기</div><div style="display:flex;flex-direction:column;gap:3px;padding:0 4px"><button class="btn" data-am="rect" style="padding:5px 2px;font-size:12px;width:100%">▭ 네모</button><button class="btn" data-am="free" style="padding:5px 2px;font-size:12px;width:100%">✎ 자유</button></div></div><div class="sep"></div>`;
  const pg=curPage();const mem=pg?pageMemberList(pg):[];const sel=S.memberSel;
  h+=`<div class="muted" style="font-size:10px;text-align:center;margin:2px 0">부재</div><button class="tool" data-mem="" style="${!sel?"border-color:var(--acc);background:#e8efff":""};font-size:11px">전체 범례</button>`;
  const toolsFor=m=>{const c=m.cat;if(!c)return legend().map(l=>({k:l.k,n:l.n}));return c.d.map(([n,g])=>dmgTool(n,g))};
