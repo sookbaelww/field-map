@@ -40,7 +40,7 @@ ol.how{padding-left:20px;margin:8px 0 0;font-size:14.5px;color:var(--sub)}
 </head>
 <body><div class="in">
 <h1>사용자 관리</h1>
-<p class="lead">팀원마다 접속 계정(아이디·비밀번호)을 만들어 주고, 필요하면 막습니다. 막힌 팀원의 앱은 다음 인터넷 연결 때 잠깁니다. 인터넷 없이 쓸 수 있는 기간은 마지막 확인 후 7일입니다.</p>
+<p class="lead">팀원마다 접속 계정(아이디·비밀번호)을 만들어 줍니다. 한 번 로그인하면 자동 로그인되고, 막으면 풀릴 때까지 못 씁니다. 막힌 팀원의 앱은 다음 인터넷 연결 때 잠깁니다. 인터넷 없이 쓸 수 있는 기간은 마지막 확인 후 7일입니다.</p>
 
 <div class="box" id="keyBox">
   <h2>관리자 키</h2>
@@ -106,7 +106,7 @@ function genPw(){return rnd(8,"abcdefghjkmnpqrstuvwxyz23456789")}
 function showCred(id,pw){$("codeTxt").textContent="아이디 "+id+"  ·  비밀번호 "+pw;$("newCode").classList.remove("hide");window.scrollTo(0,0)}
 async function setPw(u,pw){u.salt=rnd(16,"0123456789abcdef");u.h=await hash(pw,u.salt,data.iter||100000);delete u.legacy;if(!u.id){u.id=u.name}}
 async function reset(i){var u=data.users[i];if(!u)return;var pw=prompt(nm(u)+"의 새 비밀번호 (비우면 자동으로 만들어요)","");if(pw===null)return;pw=pw.trim()||genPw();
-  var before=JSON.stringify(data);try{msg($("msg"),"저장 중…");await setPw(u,pw);await store("비밀번호 재설정: "+nm(u));render();showCred(nm(u),pw);msg($("msg"),"재설정했어요. 그 팀원은 다음 인터넷 연결 때 새 비밀번호로 다시 로그인해야 해요.","ok")}
+  var before=JSON.stringify(data);try{msg($("msg"),"저장 중…");await setPw(u,pw);await store("비밀번호 재설정: "+nm(u));render();showCred(nm(u),pw);msg($("msg"),"재설정했어요. 이미 로그인된 기기는 그대로 쓰고, 새로 로그인할 때 새 비밀번호를 씁니다.","ok")}
   catch(e){data=JSON.parse(before);render();msg($("msg"),e.message,"er")}}
 async function act(i,kind){var u=data.users[i];if(!u)return;
   if(kind==="del"&&!confirm((nm(u)||"이 팀원")+" 계정을 지울까요? 이 계정으로는 더 이상 쓸 수 없어요."))return;

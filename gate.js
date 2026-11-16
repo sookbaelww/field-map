@@ -1,4 +1,4 @@
-// 접속 계정 확인: 관리자가 access.json에서 계정을 막거나 비밀번호를 바꾸면 다음 인터넷 연결 때 앱이 잠긴다.
+// 접속 계정 확인: 한 번 로그인하면 자동 로그인. 관리자가 계정을 막거나 지우면 다음 인터넷 연결 때 앱이 잠긴다.
 // 인터넷 없이 쓸 수 있는 기간은 마지막 확인 후 7일.
 (function(){
   var KEY="fm.access", DAYS=7, DAY=864e5;
@@ -64,9 +64,8 @@
     fetchList().then(function(L){
       if(st.code&&!st.id)return byCode(st.code,L);
       var u=(L.users||[]).filter(function(x){return uid(x)===st.id})[0];
-      if(u&&u.h!==st.h)return {changed:true};return u||null;
+      return u||null;
     }).then(function(u){
-      if(u&&u.changed){save({id:st.id,h:"",ok:0});ask("비밀번호가 바뀌었어요. 관리자에게 받은 새 비밀번호로 로그인하세요.");return}
       if(u&&u.active!==false){save({id:uid(u),h:u.h,ok:Date.now()});setAuthor(uid(u));hide()}
       else{save({id:st.id||"",h:"",ok:0});ask(u?"이 계정은 사용이 중지됐어요. 관리자에게 문의하세요. 조사 자료는 기기에 그대로 있어요.":"계정이 없어졌어요. 관리자에게 문의하세요.")}
     }).catch(function(){/* 오프라인: 7일 안이면 그대로 사용 */});
