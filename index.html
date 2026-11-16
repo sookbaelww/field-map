@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="gate.js"></script>
-<script>window.STANDALONE=true;window.APP_VERSION="202611161708";
+<script>window.STANDALONE=true;window.APP_VERSION="202611161716";
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 
 <script src="lib/pdf.min.js"></script>
@@ -465,7 +465,7 @@ function buildTools(){
  h+=`<button class="tool" data-mode="select"><span class="mode">👆</span>선택·수정</button>`;
  h+=`<button class="tool" data-mode="zone"><span class="mode">🧩</span>부재구역</button>`;
  h+=`<button class="tool" data-mode="memo"><span class="mode">✏️</span>메모펜</button><button class="tool" data-mode="erase"><span class="mode">🧹</span>범위 지우기</button>`;
- h+=`<div style="display:flex;justify-content:center;gap:5px;padding:2px 0" id="memoColors">${MEMO_COLORS.map(c=>`<span data-mc="${c}" style="width:16px;height:16px;border-radius:50%;background:${c};border:2px solid ${c===S.memoColor?"#facc15":"#fff"};box-shadow:0 0 0 1px #9ca3af;cursor:pointer"></span>`).join("")}</div><div class="sep"></div>`;
+ h+=`<div style="display:flex;justify-content:center;gap:5px;padding:2px 0" id="memoColors">${MEMO_COLORS.map(c=>`<span data-mc="${c}" style="width:16px;height:16px;border-radius:50%;background:${c};border:2px solid ${c===S.memoColor?"#facc15":"#fff"};box-shadow:0 0 0 1px #9ca3af;cursor:pointer"></span>`).join("")}</div><div id="areaModeW" style="display:none;text-align:center;padding:2px 0"><div class="muted" style="font-size:10px">면적 그리기</div><div style="display:flex;gap:3px;justify-content:center"><button class="btn" data-am="rect" style="padding:4px 7px;font-size:12px">▭ 네모</button><button class="btn" data-am="free" style="padding:4px 7px;font-size:12px">✎ 자유</button></div></div><div class="sep"></div>`;
  const pg=curPage();const mem=pg?pageMemberList(pg):[];const sel=S.memberSel;
  h+=`<div class="muted" style="font-size:10px;text-align:center;margin:2px 0">부재</div><button class="tool" data-mem="" style="${!sel?"border-color:var(--acc);background:#e8efff":""};font-size:11px">전체 범례</button>`;
  const toolsFor=m=>{const c=m.cat;if(!c)return legend().map(l=>({k:l.k,n:l.n}));return c.d.map(([n,g])=>dmgTool(n,g))};
@@ -484,7 +484,9 @@ function buildTools(){
   hint(S.mode==="draw"?`${lg(S.tool).n}: ${lg(S.tool).g==="line"?"선으로 그리세요":lg(S.tool).g==="area"?"영역을 둘러 그리세요":"위치를 톡 찍으세요"} (한 번 톡 = 점 표시)`:S.mode==="select"?"손상을 눌러 수정 · 번호 동그라미는 끌어서 이동":S.mode==="erase"?"번호·메모를 콕콕 눌러 고르거나 범위를 대각선으로 감싸세요 (기존 손상은 제외) · 다 골랐으면 위의 🗑 삭제":S.mode==="zone"?"▤ 띠로 나누기로 테두리를 감싸고, 선을 끌어 맞추세요 · 칸을 누르면 이름":S.mode==="memo"?"자유 메모 (손상 목록에는 안 들어가요) · 꾹 누르면 삭제":S.mode==="text"?"글자를 넣을 곳을 톡 찍으세요 · 글상자를 누르면 수정":"끌어서 이동, 두 손가락으로 확대")});
  renderTools();
 }
-function renderTools(){$("tools").querySelectorAll(".tool:not([data-mem])").forEach(b=>b.classList.toggle("on",b.dataset.mode?S.mode===b.dataset.mode:(S.mode==="draw"&&S.tool===b.dataset.k&&(!b.dataset.dn||b.dataset.dn===S.toolDesc))))}
+function areaModeUpd(){const w=$("areaModeW");if(!w)return;const on=S.mode==="draw"&&lg(S.tool)&&lg(S.tool).g==="area";w.style.display=on?"":"none";w.querySelectorAll("[data-am]").forEach(b=>{const a=b.dataset.am===(S.areaMode||"rect");b.style.background=a?"#2563eb":"";b.style.color=a?"#fff":"";b.style.borderColor=a?"#2563eb":""})}
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-am]");if(!b)return;S.areaMode=b.dataset.am;ls("ins.am",S.areaMode);areaModeUpd();hint(S.areaMode==="rect"?"면적: 손상 범위를 대각선으로 그으면 네모가 돼요":"면적: 손상 범위의 테두리를 둘러 그리세요",3000)});
+function renderTools(){setTimeout(areaModeUpd,0);$("tools").querySelectorAll(".tool:not([data-mem])").forEach(b=>b.classList.toggle("on",b.dataset.mode?S.mode===b.dataset.mode:(S.mode==="draw"&&S.tool===b.dataset.k&&(!b.dataset.dn||b.dataset.dn===S.toolDesc))))}
 function hint(t,ms=2500){const e=$("hint");e.textContent=t;e.style.display="block";clearTimeout(hint._t);hint._t=setTimeout(()=>e.style.display="none",ms)}
 
 /* 해치 패턴 */
@@ -529,8 +531,8 @@ function showPage(fit){
  if(!pg){c.style.display="none";renderList();return}
  c.style.display="block";
  if(S.pid&&pg)ls("ins.page."+S.pid,pg.id);
- c.style.width=pg.w+"px";c.style.height=pg.h+"px";
- const ov=$("ov");ov.setAttribute("width",pg.w);ov.setAttribute("height",pg.h);ov.setAttribute("viewBox",`0 0 ${pg.w} ${pg.h}`);
+ setLayout(pg,S._L||1);
+ const ov=$("ov");ov.setAttribute("viewBox",`0 0 ${pg.w} ${pg.h}`);
  const src=pg.asset?("/_blob/"+pg.asset):(S.localUrls[pg.id]||"");
  if($("pimg").getAttribute("src")!==src)$("pimg").src=src;
  if(fit)fitView();
@@ -538,7 +540,10 @@ function showPage(fit){
  buildTools();renderMarks();renderList();zoneBar();
 }
 function fitView(){const pg=curPage();if(!pg)return;const v=$("view").getBoundingClientRect();const s=Math.min(v.width/pg.w,v.height/pg.h)*0.96;S.view={s,tx:(v.width-pg.w*s)/2,ty:(v.height-pg.h*s)/2};applyView()}
-function applyView(){const{s,tx,ty}=S.view;$("content").style.transform=`translate(${tx}px,${ty}px) scale(${s})`}
+function applyView(){const{s,tx,ty}=S.view;const L=S._L||1;$("content").style.transform=`translate(${tx}px,${ty}px) scale(${s/L})`;clearTimeout(S._lt);S._lt=setTimeout(commitLayout,160)}
+/* 확대가 멈추면 실제 크기로 다시 그려 선명하게 (사파리는 transform 확대를 흐릿하게 보여줌) */
+function commitLayout(){const pg=curPage();if(!pg)return;const L=Math.max(0.25,Math.min(S.view.s,6));if(S._L&&Math.abs(L-S._L)/L<0.03)return;setLayout(pg,L);const{s,tx,ty}=S.view;$("content").style.transform=`translate(${tx}px,${ty}px) scale(${s/L})`}
+function setLayout(pg,L){S._L=L;const c=$("content");c.style.width=pg.w*L+"px";c.style.height=pg.h*L+"px";const ov=$("ov");ov.setAttribute("width",pg.w*L);ov.setAttribute("height",pg.h*L)}
 function renderPageMeta(){renderTop()}
 
 function ptsStr(pts){let s="";for(let i=0;i<pts.length;i+=2)s+=(i?" ":"")+pts[i]+","+pts[i+1];return s}
@@ -682,13 +687,15 @@ view.addEventListener("contextmenu",e=>e.preventDefault());
 ["gesturestart","gesturechange"].forEach(t=>document.addEventListener(t,e=>e.preventDefault()));
 const r1=n=>Math.round(n*10)/10;
 function drawLive(){const lv=$("live");if(!lv||!stroke)return;const l=scaleMode?{c:"#f59e0b"}:S.mode==="memo"?{c:S.memoColor,g:"line"}:lg(S.tool);
- if(!scaleMode&&!cropMode&&l.g==="area"&&stroke.pts.length>2&&isDiagonal(stroke.pts)){const a=stroke.pts[0],b=stroke.pts[stroke.pts.length-1];lv.innerHTML=`<rect x="${Math.min(a[0],b[0])}" y="${Math.min(a[1],b[1])}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="url(#p_${String(l.k).replace(/[^\w-]/g,"_")})" stroke="${l.c}" stroke-width="1" opacity=".9"/>`;return}
+ if(!scaleMode&&!cropMode&&l.g==="area"&&stroke.pts.length>2&&useRect(stroke.pts)){const[a,b]=rectAB(stroke.pts);lv.innerHTML=`<rect x="${Math.min(a[0],b[0])}" y="${Math.min(a[1],b[1])}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="url(#p_${String(l.k).replace(/[^\w-]/g,"_")})" stroke="${l.c}" stroke-width="1" opacity=".9"/>`;return}
  if(cropMode||S.mode==="zone"||S.mode==="erase"){const a=stroke.pts[0],b=stroke.pts[stroke.pts.length-1];lv.innerHTML=`<rect x="${Math.min(a[0],b[0])}" y="${Math.min(a[1],b[1])}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="rgba(37,99,235,.12)" stroke="#2563eb" stroke-width="1" stroke-dasharray="3 2"/>`;return}
  lv.innerHTML=`<polyline points="${stroke.pts.map(p=>p.join(",")).join(" ")}" fill="none" stroke="${l.c}" stroke-width="${1.4/Math.max(0.5,S.view.s/2)}" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>`}
 function rdp(pts,eps){if(pts.length<3)return pts;let dmax=0,idx=0;const[a,b]=[pts[0],pts[pts.length-1]];const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1e-9;
  for(let i=1;i<pts.length-1;i++){const d=Math.abs(dy*pts[i][0]-dx*pts[i][1]+b[0]*a[1]-b[1]*a[0])/L;if(d>dmax){dmax=d;idx=i}}
  if(dmax>eps){const l=rdp(pts.slice(0,idx+1),eps),r=rdp(pts.slice(idx),eps);return l.slice(0,-1).concat(r)}return[a,b]}
 /* 대각선 판정: 시작~끝 거리가 그린 범위 대각선의 60% 이상이고, 선이 대체로 곧으면 네모 */
+function useRect(pts){if((S.areaMode||"rect")==="free")return isDiagonal(pts);if(pts.length<2)return false;const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);return(Math.max(...xs)-Math.min(...xs))*S.view.s>6&&(Math.max(...ys)-Math.min(...ys))*S.view.s>6}
+function rectAB(pts){if((S.areaMode||"rect")==="free")return[pts[0],pts[pts.length-1]];const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);return[[Math.min(...xs),Math.min(...ys)],[Math.max(...xs),Math.max(...ys)]]}
 function isDiagonal(pts){if(pts.length<2)return false;const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);const diag=Math.hypot(Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys))||1;
  const a=pts[0],b=pts[pts.length-1];const se=Math.hypot(b[0]-a[0],b[1]-a[1]);let len=0;for(let i=1;i<pts.length;i++)len+=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);
  return se/diag>0.6&&len/(se||1)<1.4}
@@ -711,7 +718,7 @@ async function finishStroke(st){
  if(S.multi&&S.mode==="draw"&&!scaleMode){const m=S.marks.get(S.multi);if(!m||m.page!==pg.id){stopMulti();toast("다른 도면이라 묶음 그리기를 끝냈어요");return}
   const tap=st.pts.length<3&&Math.hypot(st.pts[st.pts.length-1][0]-st.pts[0][0],st.pts[st.pts.length-1][1]-st.pts[0][1])*S.view.s<6;let part;
   if(m.geom==="point"||tap){part=[r1(st.pts[0][0]),r1(st.pts[0][1])]}
-  else if(m.geom==="area"&&isDiagonal(st.pts)){const a=st.pts[0],b=st.pts[st.pts.length-1];const x0=r1(Math.min(a[0],b[0])),x1=r1(Math.max(a[0],b[0])),y0=r1(Math.min(a[1],b[1])),y1=r1(Math.max(a[1],b[1]));part=[x0,y0,x1,y0,x1,y1,x0,y1]}
+  else if(m.geom==="area"&&useRect(st.pts)){const[a,b]=rectAB(st.pts);const x0=r1(Math.min(a[0],b[0])),x1=r1(Math.max(a[0],b[0])),y0=r1(Math.min(a[1],b[1])),y1=r1(Math.max(a[1],b[1]));part=[x0,y0,x1,y0,x1,y1,x0,y1]}
   else{part=rdp(st.pts,Math.max(0.3,0.8/S.view.s)).flatMap(q=>[r1(q[0]),r1(q[1])])}
   part=fitPartSize(m,part,tap);
   const parts=(m.parts||[]).concat([part]);await saveMark({...m,parts,cnt:String(1+parts.length),updatedAt:Date.now()});multiBarUpd();return}
@@ -727,7 +734,7 @@ async function finishStroke(st){
  const l=lg(S.tool);let geom=isTap?"point":l.g;if(l.g==="point")geom="point";
  let pts;
  if(geom==="point"){const p=st.pts[0];pts=[r1(p[0]),r1(p[1])]}
- else if(geom==="area"&&isDiagonal(st.pts)){const a=st.pts[0],b=st.pts[st.pts.length-1];const x0=r1(Math.min(a[0],b[0])),x1=r1(Math.max(a[0],b[0])),y0=r1(Math.min(a[1],b[1])),y1=r1(Math.max(a[1],b[1]));pts=[x0,y0,x1,y0,x1,y1,x0,y1]}
+ else if(geom==="area"&&useRect(st.pts)){const[a,b]=rectAB(st.pts);const x0=r1(Math.min(a[0],b[0])),x1=r1(Math.max(a[0],b[0])),y0=r1(Math.min(a[1],b[1])),y1=r1(Math.max(a[1],b[1]));pts=[x0,y0,x1,y0,x1,y1,x0,y1]}
  else{const eps=Math.max(0.3,0.8/S.view.s);let s=rdp(st.pts,eps);if(geom==="area"&&s.length<3){const xs=st.pts.map(p=>p[0]),ys=st.pts.map(p=>p[1]);const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);s=[[x0,y0],[x1,y0],[x1,y1],[x0,y1]]}pts=s.flatMap(p=>[r1(p[0]),r1(p[1])])}
  const last=pts.length-2;const bx=r1(pts[last]+9),by=r1(pts[last+1]-9);
  const prev=JSON.parse(ls("ins.last")||"{}");
@@ -826,7 +833,7 @@ async function importFiles(files){
     for(let i=1;i<=pdf.numPages;i++){
      txt.textContent=`${f.name} — ${i}/${pdf.numPages} 페이지 변환 중`;bar.style.width=(i/pdf.numPages*100)+"%";
      const page=await pdf.getPage(i);const vp1=page.getViewport({scale:1});
-     const sc=Math.min(4,3200/Math.max(vp1.width,vp1.height));const vp=page.getViewport({scale:sc});
+     const sc=Math.min(6,4800/Math.max(vp1.width,vp1.height),Math.sqrt(16e6/(vp1.width*vp1.height)));const vp=page.getViewport({scale:sc});
      const cv=document.createElement("canvas");cv.width=Math.round(vp.width);cv.height=Math.round(vp.height);const ctx=cv.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,cv.width,cv.height);
      await page.render({canvasContext:ctx,viewport:vp}).promise;
      const blob=await new Promise(r=>cv.toBlob(r,"image/png"));cv.width=cv.height=1;
@@ -1525,7 +1532,7 @@ $("multiDone").onclick=()=>{const m=S.marks.get(S.multi);stopMulti();if(m)toast(
 $("multiUndo").onclick=async()=>{const m=S.marks.get(S.multi);if(!m||!(m.parts||[]).length)return;const parts=m.parts.slice(0,-1);await saveMark({...m,parts,cnt:String(1+parts.length),updatedAt:Date.now()});multiBarUpd()};
 /* ───────── 시작 ───────── */
 function init(){
- const t=ls("ins.tool");if(t&&legend().some(l=>l.k===t))S.tool=t;const mc=ls("ins.mc");if(mc&&MEMO_COLORS.includes(mc))S.memoColor=mc;
+ const t=ls("ins.tool");if(t&&legend().some(l=>l.k===t))S.tool=t;{const am=ls("ins.am");if(am==="free"||am==="rect")S.areaMode=am}const mc=ls("ins.mc");if(mc&&MEMO_COLORS.includes(mc))S.memoColor=mc;
  buildTools();buildForm();refreshDatalists();
  if(window.innerWidth<1000)$("side").classList.add("hide");
  window.addEventListener("resize",()=>applyView());
