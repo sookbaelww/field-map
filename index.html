@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#2563eb">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script>window.STANDALONE=true;window.APP_VERSION="202611160029";
+<script>window.STANDALONE=true;window.APP_VERSION="202611161252";
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 
 <script src="lib/pdf.min.js"></script>
@@ -128,7 +128,7 @@ table.dl tr{cursor:pointer}
   <div class="grid">
     <div class="f c3" id="fExist" style="display:none;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:8px"><label>기존 손상 <b id="fOld"></b>번 — 현장 확인</label><div class="row"><div class="seg" id="fCheck" style="flex:1"></div><button class="btn" id="fPin">위치 지정</button></div></div>
     <div class="f c3"><label>범례 종류</label><select id="fType" hidden></select><div id="fTypeGrid" style="display:flex;flex-wrap:wrap;gap:4px;max-height:148px;overflow:auto"></div></div>
-    <div class="f c3"><label>구분</label><div class="seg" id="fStatus"></div></div>
+    <div class="f c3" style="display:none"><label>구분</label><div class="seg" id="fStatus"></div></div>
     <div class="f"><label>손상위치(부재)</label><input id="fLoc" list="dlLoc" autocomplete="off"></div>
     <div class="f c2"><label>손상내용</label><input id="fDesc" list="dlDesc" autocomplete="off"></div>
     <div class="f"><label>경간</label><input id="fSpan" autocomplete="off"></div>
@@ -141,7 +141,7 @@ table.dl tr{cursor:pointer}
     <div class="f"><label>조사자</label><input id="fAuthor" autocomplete="off"></div>
     <div class="f c3"><label>비고</label><input id="fNote" autocomplete="off"></div>
   </div>
-  <div class="actions"><button class="btn dng" id="fDel">삭제</button><div class="sp"></div><button class="btn" id="fCancel">취소</button><button class="btn pri" id="fSave">저장</button></div>
+  <div class="actions"><button class="btn dng" id="fDel">삭제</button><div class="sp"></div><button class="btn" id="fDup" title="같은 자리에 겹친 손상을 하나 더 추가">＋ 중복 손상 추가</button><button class="btn" id="fCancel">취소</button><button class="btn pri" id="fSave">저장</button></div>
 </div></div>
 <datalist id="dlLoc"></datalist><datalist id="dlDesc"></datalist>
 
@@ -528,7 +528,7 @@ function renderList(){
  const nb=numbering(pg.id),ms=nb.order;const nEx=ms.filter(m=>m.origin==="existing").length;$("listCount").textContent=`${ms.length}건`+(nEx?` (기존 ${nEx} · 확인 ${ms.filter(m=>m.origin==="existing"&&m.check).length})`:"");
  let h=`<table class="dl"><tr><th>번호</th><th>손상내용</th><th>규격</th><th>물량</th><th>사진</th></tr>`;
  ms.forEach((m,i)=>{const q=qtyOf(m),u=unitOf(m);const dim=[m.w?m.w+"mm":"",num(m.l)!=null?m.l:"",num(m.b)!=null?"×"+m.b:""].join(" ").trim();
-  h+=`<tr data-id="${m.id}" class="${m.id===S.selId?"sel":""}"><td><span class="num" style="border-color:${m.origin==="existing"?(CHK[m.check||""]||CHK[""])[0]:lg(m.type).c}${nb.map[m.id]?"":";opacity:.4"}">${esc(nb.map[m.id]||"-")}</span></td><td>${esc(m.desc||lg(m.type)?.n)}${m.origin==="existing"?` <span style="font-size:11px;color:${(CHK[m.check||""]||CHK[""])[0]}">[${m.deleted?"삭제됨":(m.check||"미확인")}${m.pts&&m.pts.length?"":"·위치없음"}]</span>`:""}<div class="muted">${esc(m.status||"")} · ${esc(m.loc||"")}${m.span?" · "+esc(m.span):""}</div></td><td>${esc(dim)}${m.cnt&&m.cnt!=1?`<div class="muted">${esc(m.cnt)}개소</div>`:""}</td><td>${q==null?"":q+" "+u}</td><td>${esc(m.photo||"")}</td></tr>`});
+  h+=`<tr data-id="${m.id}" class="${m.id===S.selId?"sel":""}"><td><span class="num" style="border-color:${m.origin==="existing"?(CHK[m.check||""]||CHK[""])[0]:lg(m.type).c}${nb.map[m.id]?"":";opacity:.4"}">${esc(nb.map[m.id]||"-")}</span></td><td>${esc(m.desc||lg(m.type)?.n)}${m.dupOf&&nb.map[m.dupOf]?` <span class="muted">↔${esc(nb.map[m.dupOf])}번 중복</span>`:""}${m.origin==="existing"?` <span style="font-size:11px;color:${(CHK[m.check||""]||CHK[""])[0]}">[${m.deleted?"삭제됨":(m.check||"미확인")}${m.pts&&m.pts.length?"":"·위치없음"}]</span>`:""}<div class="muted">${esc(m.status||"")} · ${esc(m.loc||"")}${m.span?" · "+esc(m.span):""}</div></td><td>${esc(dim)}${m.cnt&&m.cnt!=1?`<div class="muted">${esc(m.cnt)}개소</div>`:""}</td><td>${q==null?"":q+" "+u}</td><td>${esc(m.photo||"")}</td></tr>`});
  h+=`</table>`;if(!ms.length)h=`<div class="muted" style="padding:12px">왼쪽 범례를 고르고 도면에 그리면 여기에 쌓입니다.</div>`;
  el.innerHTML=h;
  el.querySelectorAll("tr[data-id]").forEach(tr=>{const m0=S.marks.get(tr.dataset.id);if(m0&&m0.origin!=="existing"){let t=null,sx=0,sy=0;
@@ -650,6 +650,7 @@ function buildForm(){
  $("fPin").onclick=async()=>{const id=S.editing&&S.editing.id;if(!id)return;await saveForm();pinMode=id;hint("이 기존 손상의 번호 위치를 도면에서 톡 찍으세요",5000)};
  $("fCancel").onclick=()=>{closeM("mMark");S.editing=null};
  $("fSave").onclick=saveForm;
+ $("fDup").onclick=async()=>{const base=await saveForm();if(!base)return;addDuplicate(base)};
  $("fDel").onclick=async()=>{const m=S.editing;if(!m||m._new)return;
   if(m.origin==="existing"){const cur=S.marks.get(m.id);if(!cur)return;if(cur.deleted){closeM("mMark");await saveMark({...cur,deleted:false,updatedAt:Date.now()});toast(`기존 ${cur.oldNo}번을 복원했어요`);return}
    if(await confirmBox("기존 손상 삭제",`기존 ${cur.oldNo}번 손상을 목록에서 뺄까요? 변경내역 시트에 '삭제'로 기록되고, 나중에 다시 눌러 복원할 수 있어요.`)){closeM("mMark");await saveMark({...cur,deleted:true,updatedAt:Date.now()})}return}
@@ -682,7 +683,7 @@ async function saveForm(){
  else if(lg(m.type).g==="point")m.geom="point";else if(m.geom!=="point")m.geom=lg(m.type).g==="area"&&m.pts.length>=6?"area":(lg(m.type).g==="line"?"line":m.geom);
  if(m.origin!=="existing")ls("ins.last",JSON.stringify({loc:m.loc}));if(m.author)ls("ins.author",m.author);
  const ns=m.photo.match(/\d+/g);if(ns)ls("ins.photo."+S.pid,ns[ns.length-1]);
- closeM("mMark");S.editing=null;S.selId=m.id;await saveMark(m);
+ closeM("mMark");S.editing=null;S.selId=m.id;await saveMark(m);return m;
 }
 
 /* ───────── 시설물 / 도면 관리 ───────── */
@@ -807,7 +808,7 @@ function rowFor(m,no,cols,F,nsw){const sameShape=m.origin==="existing"&&Array.is
  if(changed){set("loc",m.loc);set("desc",m.desc);set("w",m.w);set("l",m.l);set("b",m.b);if(m.d!=null&&m.d!=="")set("d",m.d);set("unit",unitOf(m));set("cnt",m.cnt);set("qty",fmtQ(qtyOf(m)));set("note",m.note)}
  return r}
 function pageTable(pg,useCols){const nb=numbering(pg.id);const{cols,F}=useCols||colsFor(pg);const nsw=newStatusWord();
- const items=nb.order.filter(m=>nb.map[m.id]);return{cols,F,items,rows:items.map(m=>rowFor(m,nb.map[m.id],cols,F,nsw)),nb}}
+ const items=nb.order.filter(m=>nb.map[m.id]);return{cols,F,items,rows:items.map(m=>rowFor(m.dupOf&&nb.map[m.dupOf]?{...m,note:[m.note,`${nb.map[m.dupOf]}번 중복`].filter(Boolean).join(" ")}:m,nb.map[m.id],cols,F,nsw)),nb}}
 const cellVal=v=>{const t=String(v??"").trim();return/^-?\d+(\.\d+)?$/.test(t)&&!/^0\d/.test(t)?+t:t};
 $("eXlsx").onclick=async()=>{
  const p=P(),ps=sortedPages().filter(pg=>numbering(pg.id).order.length);if(!ps.length){toast("내보낼 손상이 없습니다");return}
@@ -1272,6 +1273,15 @@ async function editMemoText(m,p){const pg=curPage();if(!pg)return;
  if(v==null)return;const text=v.split(/\s*\/\s*/).join("\n").trim();
  if(!text){if(m){await delMark(m.id);toast("글상자를 삭제했어요")}return}
  if(m)await saveMark({...m,text,updatedAt:Date.now()});else await saveMark({id:uid(),page:pg.id,origin:"memo",kind:"text",pts:[r1(p[0]),r1(p[1])],text,color:S.memoColor,size:Math.max(5,Math.min(14,9/Math.max(0.6,S.view.s/1.5))),author:ls("ins.author")||"",createdAt:Date.now()})}
+/* 중복 손상: 같은 자리에 겹친 손상을 별도 번호·물량으로 추가 (예: 균열 + 백태) */
+function addDuplicate(base){const pg=S.pages.get(base.page);if(!pg)return;
+ const L=legend();const want=lg(base.type).g==="line"?(L.find(l=>/백태/.test(l.n)&&l.g==="area")||L.find(l=>l.g==="area")):null;const type=(want||lg(base.type)).k;
+ let pts=(base.pts||[]).slice(),geom=base.geom==="pin"?"point":base.geom;
+ if(lg(type).g==="area"&&geom==="line"){const xs=pts.filter((_,i)=>i%2===0),ys=pts.filter((_,i)=>i%2===1);const pad=3;const x0=r1(Math.min(...xs)-pad),x1=r1(Math.max(...xs)+pad),y0=r1(Math.min(...ys)-pad),y1=r1(Math.max(...ys)+pad);pts=[x0,y0,x1,y0,x1,y1,x0,y1];geom="area"}
+ if(pts.length<2)pts=base.badge?base.badge.slice():[pg.w/2,pg.h/2];
+ const bb=base.badge||[pts[0]+8,pts[1]-8];
+ const m={id:uid(),page:base.page,type,geom,pts,badge:[r1(bb[0]+13),r1(bb[1])],status:"신규",loc:base.loc||"",desc:lg(type).presets[0],span:base.span||pg.span||"",w:"",l:base.l||"",b:base.b||"",cnt:base.cnt||"1",photo:base.photo||"",note:"",author:base.author||ls("ins.author")||"",dupOf:base.id,createdAt:Date.now()};
+ openMark(m,true);toast("같은 자리의 중복 손상이에요 — 종류와 규격을 확인하세요 (백태면 너비 입력)",4500)}
 /* ───────── 시작 ───────── */
 function init(){
  const t=ls("ins.tool");if(t&&legend().some(l=>l.k===t))S.tool=t;const mc=ls("ins.mc");if(mc&&MEMO_COLORS.includes(mc))S.memoColor=mc;
