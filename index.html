@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#2563eb">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script>window.STANDALONE=true;window.APP_VERSION="202611161252";
+<script>window.STANDALONE=true;window.APP_VERSION="202611161303";
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 
 <script src="lib/pdf.min.js"></script>
@@ -114,6 +114,7 @@ table.dl tr{cursor:pointer}
     <div id="content"><img id="pimg" alt=""><svg id="ov" xmlns="http://www.w3.org/2000/svg"></svg></div>
     <div id="empty"></div>
     <div id="hint"></div>
+    <div id="zoneBar" style="position:absolute;left:10px;top:10px;display:none;gap:6px;flex-wrap:wrap;z-index:5"><button class="btn" id="zAi">🤖 AI 제안 (이 도면)</button><button class="btn" id="zAiAll">🤖 AI 제안 (전체)</button><button class="btn" id="zCopy">같은 부재 도면에 복사</button><button class="btn dng" id="zClear">이 도면 구역 지우기</button><button class="btn pri" id="zDone">완료</button></div>
   </div>
   <div id="side">
     <h3><span id="listTitle">손상 목록</span><span class="muted" id="listCount"></span><button class="btn" id="bExistOne" style="padding:4px 8px;font-size:12px">기존 손상 판독</button></h3>
@@ -332,7 +333,7 @@ function qtyOf(m){const c=num(m.cnt);if(c==null)return m.qtyRaw!=null&&m.qtyRaw!
 function openM(id){$(id).classList.add("show")}
 function closeM(id){$(id).classList.remove("show")}
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest(".modal").classList.remove("show"));
-function ask(title,text,def=""){return new Promise(res=>{$("askTitle").textContent=title;$("askText").textContent=text;$("askIn").value=def;openM("mAsk");setTimeout(()=>$("askIn").focus(),50);
+function ask(title,text,def="",opt={}){return new Promise(res=>{$("askTitle").textContent=title;$("askText").textContent=text;$("askIn").value=def;if(opt.list)$("askIn").setAttribute("list",opt.list);else $("askIn").removeAttribute("list");$("askIn").setAttribute("inputmode",opt.list?"text":"decimal");openM("mAsk");setTimeout(()=>$("askIn").focus(),50);
  $("askOk").onclick=()=>{closeM("mAsk");res($("askIn").value)};$("askNo").onclick=()=>{closeM("mAsk");res(null)}})}
 function confirmBox(title,text){return new Promise(res=>{$("cfTitle").textContent=title;$("cfText").textContent=text;openM("mConfirm");
  $("cfOk").onclick=()=>{closeM("mConfirm");res(true)};$("cfNo").onclick=()=>{closeM("mConfirm");res(false)}})}
@@ -418,13 +419,14 @@ function buildTools(){
  const t=$("tools");let h=`<svg width="0" height="0" style="position:absolute"><defs>${legend().filter(l=>l.g==="area").map(l=>patternDef("ip_"+l.k,l,3)).join("")}</defs></svg>`;
  h+=`<button class="tool" data-mode="pan"><span class="mode">✋</span>이동</button>`;
  h+=`<button class="tool" data-mode="select"><span class="mode">👆</span>선택·수정</button>`;
+ h+=`<button class="tool" data-mode="zone"><span class="mode">🧩</span>부재구역</button>`;
  h+=`<button class="tool" data-mode="memo"><span class="mode">✏️</span>메모펜</button><button class="tool" data-mode="text"><span class="mode">🔤</span>글상자</button>`;
  h+=`<div style="display:flex;justify-content:center;gap:5px;padding:2px 0" id="memoColors">${MEMO_COLORS.map(c=>`<span data-mc="${c}" style="width:16px;height:16px;border-radius:50%;background:${c};border:2px solid ${c===S.memoColor?"#facc15":"#fff"};box-shadow:0 0 0 1px #9ca3af;cursor:pointer"></span>`).join("")}</div><div class="sep"></div>`;
  legend().forEach(l=>h+=`<button class="tool" data-k="${l.k}">${legendIcon(l)}${l.n}</button>`);
  t.innerHTML=h;
  t.querySelectorAll("[data-mc]").forEach(d=>d.onclick=()=>{S.memoColor=d.dataset.mc;ls("ins.mc",S.memoColor);if(S.mode!=="memo"&&S.mode!=="text")S.mode="memo";buildTools()});
- t.querySelectorAll(".tool").forEach(b=>b.onclick=()=>{if(b.dataset.mode){S.mode=b.dataset.mode}else{S.mode="draw";S.tool=b.dataset.k}ls("ins.tool",S.tool);renderTools();
-  hint(S.mode==="draw"?`${lg(S.tool).n}: ${lg(S.tool).g==="line"?"선으로 그리세요":lg(S.tool).g==="area"?"영역을 둘러 그리세요":"위치를 톡 찍으세요"} (한 번 톡 = 점 표시)`:S.mode==="select"?"손상을 눌러 수정 · 번호 동그라미는 끌어서 이동":S.mode==="memo"?"자유 메모 (손상 목록에는 안 들어가요) · 꾹 누르면 삭제":S.mode==="text"?"글자를 넣을 곳을 톡 찍으세요 · 글상자를 누르면 수정":"끌어서 이동, 두 손가락으로 확대")});
+ t.querySelectorAll(".tool").forEach(b=>b.onclick=()=>{if(b.dataset.mode){S.mode=b.dataset.mode}else{S.mode="draw";S.tool=b.dataset.k}ls("ins.tool",S.tool);renderTools();renderMarks();zoneBar();
+  hint(S.mode==="draw"?`${lg(S.tool).n}: ${lg(S.tool).g==="line"?"선으로 그리세요":lg(S.tool).g==="area"?"영역을 둘러 그리세요":"위치를 톡 찍으세요"} (한 번 톡 = 점 표시)`:S.mode==="select"?"손상을 눌러 수정 · 번호 동그라미는 끌어서 이동":S.mode==="zone"?"부재 구역: 대각선으로 그어 추가 · 구역을 톡 누르면 이름 수정·삭제":S.mode==="memo"?"자유 메모 (손상 목록에는 안 들어가요) · 꾹 누르면 삭제":S.mode==="text"?"글자를 넣을 곳을 톡 찍으세요 · 글상자를 누르면 수정":"끌어서 이동, 두 손가락으로 확대")});
  renderTools();
 }
 function renderTools(){$("tools").querySelectorAll(".tool").forEach(b=>b.classList.toggle("on",b.dataset.mode?S.mode===b.dataset.mode:(S.mode==="draw"&&S.tool===b.dataset.k)))}
@@ -477,7 +479,7 @@ function showPage(fit){
  const src=pg.asset?("/_blob/"+pg.asset):(S.localUrls[pg.id]||"");
  if($("pimg").getAttribute("src")!==src)$("pimg").src=src;
  if(fit)fitView();
- renderMarks();renderList();
+ renderMarks();renderList();zoneBar();
 }
 function fitView(){const pg=curPage();if(!pg)return;const v=$("view").getBoundingClientRect();const s=Math.min(v.width/pg.w,v.height/pg.h)*0.96;S.view={s,tx:(v.width-pg.w*s)/2,ty:(v.height-pg.h*s)/2};applyView()}
 function applyView(){const{s,tx,ty}=S.view;$("content").style.transform=`translate(${tx}px,${ty}px) scale(${s})`}
@@ -520,6 +522,7 @@ function renderMarks(){
  const pg=curPage(),ov=$("ov");if(!pg){ov.innerHTML="";return}
  let h=`<defs>${legend().filter(l=>l.g==="area").map(l=>patternDef("p_"+l.k,l,4)).join("")}</defs>`;
  const nb=numbering(pg.id);nb.order.forEach(m=>h+=markSvg(m,nb.map[m.id]||"",m.id===S.selId));pageMemos(pg.id).forEach(m=>h+=memoSvg(m,m.id===S.selId));
+ h=h.replace("</defs>","</defs>"+zonesSvg(pg));
  h+=`<g id="live"></g>`;ov.innerHTML=h;
 }
 function renderList(){
@@ -551,6 +554,7 @@ function focusMark(id){const m=S.marks.get(id);if(!m||!m.pts||m.pts.length<2)ret
 const view=$("view");const ptrs=new Map();let stroke=null,pinch=null,pan=null,badgeDrag=null,tapSel=null,scaleMode=false,cropMode=null,pinMode=null,lp=null;
 function toPage(cx,cy){const r=view.getBoundingClientRect();return[(cx-r.left-S.view.tx)/S.view.s,(cy-r.top-S.view.ty)/S.view.s]}
 view.addEventListener("pointerdown",e=>{
+ if(e.target.closest&&e.target.closest("#zoneBar"))return;
  if(!curPage())return;
  const isPen=e.pointerType==="pen",isMouse=e.pointerType==="mouse",isTouch=e.pointerType==="touch";
  if(stroke&&isTouch)return; // 손바닥 무시
@@ -558,7 +562,7 @@ view.addEventListener("pointerdown",e=>{
  const drawer=isPen||(isMouse&&e.button===0)||(isTouch&&S.finger);
  hideDelPop();
  {const hitEl=badgeEl||markEl;const hm=hitEl&&S.marks.get(hitEl.dataset.badge||hitEl.dataset.id);
-  if(hm&&hm.origin!=="existing"&&S.mode!=="text"&&(drawer||isTouch)){clearTimeout(lp&&lp.t);lp={id:hm.id,pid:e.pointerId,x:e.clientX,y:e.clientY,fired:false};
+  if(hm&&hm.origin!=="existing"&&S.mode!=="text"&&S.mode!=="zone"&&(drawer||isTouch)){clearTimeout(lp&&lp.t);lp={id:hm.id,pid:e.pointerId,x:e.clientX,y:e.clientY,fired:false};
    lp.t=setTimeout(()=>{if(!lp||lp.moved)return;lp.fired=true;if(stroke&&stroke.pid===lp.pid){stroke=null;$("live")&&($("live").innerHTML="")}
     if(badgeDrag&&badgeDrag.pid===lp.pid)badgeDrag=null;if(tapSel&&tapSel.pid===lp.pid)tapSel=null;if(ptrs.has(lp.pid)){ptrs.delete(lp.pid);pan=null}
     showDelPop(lp.id,lp.x,lp.y)},600)}}
@@ -569,7 +573,7 @@ view.addEventListener("pointerdown",e=>{
  if(drawer&&badgeEl&&(S.mode==="select"||S.mode==="draw")){const m=S.marks.get(badgeEl.dataset.badge);badgeDrag={id:m.id,sx:e.clientX,sy:e.clientY,moved:false,pid:e.pointerId};return}
  if(drawer&&S.mode==="select"){tapSel={id:markEl?markEl.dataset.id:null,x:e.clientX,y:e.clientY,pid:e.pointerId};return}
  if(drawer&&S.mode==="text"&&ptrs.size===0){const hitT=markEl&&S.marks.get(markEl.dataset.id);const p=toPage(e.clientX,e.clientY);setTimeout(()=>editMemoText(hitT&&hitT.origin==="memo"&&hitT.kind==="text"?hitT:null,p),0);return}
- if(drawer&&(S.mode==="draw"||S.mode==="memo"||scaleMode)&&ptrs.size===0){const p=toPage(e.clientX,e.clientY);stroke={pid:e.pointerId,pts:[p],sx:e.clientX,sy:e.clientY};drawLive();return}
+ if(drawer&&(S.mode==="draw"||S.mode==="memo"||S.mode==="zone"||scaleMode)&&ptrs.size===0){const p=toPage(e.clientX,e.clientY);stroke={pid:e.pointerId,pts:[p],sx:e.clientX,sy:e.clientY};drawLive();return}
  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
  if(ptrs.size===1){pan={x:e.clientX,y:e.clientY,tx:S.view.tx,ty:S.view.ty,id:e.pointerId}}
  if(ptrs.size===2){pan=null;const[a,b]=[...ptrs.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),mx:(a.x+b.x)/2,my:(a.y+b.y)/2,v:{...S.view}}}
@@ -600,7 +604,7 @@ view.addEventListener("contextmenu",e=>e.preventDefault());
 const r1=n=>Math.round(n*10)/10;
 function drawLive(){const lv=$("live");if(!lv||!stroke)return;const l=scaleMode?{c:"#f59e0b"}:S.mode==="memo"?{c:S.memoColor,g:"line"}:lg(S.tool);
  if(!scaleMode&&!cropMode&&l.g==="area"&&stroke.pts.length>2&&isDiagonal(stroke.pts)){const a=stroke.pts[0],b=stroke.pts[stroke.pts.length-1];lv.innerHTML=`<rect x="${Math.min(a[0],b[0])}" y="${Math.min(a[1],b[1])}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="url(#p_${l.k})" stroke="${l.c}" stroke-width="1" opacity=".9"/>`;return}
- if(cropMode){const a=stroke.pts[0],b=stroke.pts[stroke.pts.length-1];lv.innerHTML=`<rect x="${Math.min(a[0],b[0])}" y="${Math.min(a[1],b[1])}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="rgba(37,99,235,.12)" stroke="#2563eb" stroke-width="1" stroke-dasharray="3 2"/>`;return}
+ if(cropMode||S.mode==="zone"){const a=stroke.pts[0],b=stroke.pts[stroke.pts.length-1];lv.innerHTML=`<rect x="${Math.min(a[0],b[0])}" y="${Math.min(a[1],b[1])}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="rgba(37,99,235,.12)" stroke="#2563eb" stroke-width="1" stroke-dasharray="3 2"/>`;return}
  lv.innerHTML=`<polyline points="${stroke.pts.map(p=>p.join(",")).join(" ")}" fill="none" stroke="${l.c}" stroke-width="${1.4/Math.max(0.5,S.view.s/2)}" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>`}
 function rdp(pts,eps){if(pts.length<3)return pts;let dmax=0,idx=0;const[a,b]=[pts[0],pts[pts.length-1]];const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1e-9;
  for(let i=1;i<pts.length-1;i++){const d=Math.abs(dy*pts[i][0]-dx*pts[i][1]+b[0]*a[1]-b[1]*a[0])/L;if(d>dmax){dmax=d;idx=i}}
@@ -612,6 +616,9 @@ function isDiagonal(pts){if(pts.length<2)return false;const xs=pts.map(p=>p[0]),
 async function finishStroke(st){
  const pg=curPage();if(!pg)return;
  if(cropMode){const cb=cropMode;cropMode=null;const a=st.pts[0],b=st.pts[st.pts.length-1];const box=[Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.max(a[0],b[0]),Math.max(a[1],b[1])];if(box[2]-box[0]<2||box[3]-box[1]<2){toast("너무 작아요. 다시 시도하세요");return}cb(box);return}
+ if(S.mode==="zone"&&!scaleMode){const a=st.pts[0],b=st.pts[st.pts.length-1];const box=[r1(Math.min(a[0],b[0])),r1(Math.min(a[1],b[1])),r1(Math.max(a[0],b[0])),r1(Math.max(a[1],b[1]))];
+  if((box[2]-box[0])*S.view.s<12||(box[3]-box[1])*S.view.s<12){const z=zoneAt(pg,a[0],a[1],true);if(z)editZone(pg,z);return}
+  const v=await ask("부재 구역 이름","이 구역에 손상을 그리면 손상위치(부재)에 이 이름이 자동으로 들어가요","",{list:"dlLoc"});if(v&&v.trim())await savePage({...S.pages.get(pg.id),zones:(S.pages.get(pg.id).zones||[]).concat([{id:"Z"+uid().slice(0,8),name:v.trim(),box}])});renderMarks();return}
  if(S.mode==="memo"&&!scaleMode){const eps=Math.max(0.2,0.5/S.view.s);let pts=st.pts.length<2?[st.pts[0],[st.pts[0][0]+0.5,st.pts[0][1]+0.5]]:rdp(st.pts,eps);
   await saveMark({id:uid(),page:pg.id,origin:"memo",kind:"pen",pts:pts.flatMap(q=>[r1(q[0]),r1(q[1])]),color:S.memoColor,w:Math.max(0.6,1.4/Math.max(1,S.view.s/2)),author:ls("ins.author")||"",createdAt:Date.now()});return}
  const moved=Math.hypot(st.pts[st.pts.length-1][0]-st.pts[0][0],st.pts[st.pts.length-1][1]-st.pts[0][1])*S.view.s;
@@ -628,7 +635,8 @@ async function finishStroke(st){
  else{const eps=Math.max(0.3,0.8/S.view.s);let s=rdp(st.pts,eps);if(geom==="area"&&s.length<3){const xs=st.pts.map(p=>p[0]),ys=st.pts.map(p=>p[1]);const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);s=[[x0,y0],[x1,y0],[x1,y1],[x0,y1]]}pts=s.flatMap(p=>[r1(p[0]),r1(p[1])])}
  const last=pts.length-2;const bx=r1(pts[last]+9),by=r1(pts[last+1]-9);
  const prev=JSON.parse(ls("ins.last")||"{}");
- const m={id:uid(),page:pg.id,type:S.tool,geom,pts,badge:[bx,by],status:"신규",loc:prev.loc||"",desc:l.presets[0],span:pg.span||"",w:"",l:"",b:"",cnt:"1",photo:"",note:"",author:ls("ins.author")||"",createdAt:Date.now()};
+ const cen=centroid(pts);const zn=zoneAt(pg,cen[0],cen[1]);
+ const m={id:uid(),page:pg.id,type:S.tool,geom,pts,badge:[bx,by],status:"신규",loc:zn?zn.name:(pg.member||prev.loc||""),desc:l.presets[0],span:pg.span||"",w:"",l:"",b:"",cnt:"1",photo:"",note:"",author:ls("ins.author")||"",createdAt:Date.now()};
  // 축척 있으면 자동 계산
  if(pg.scale&&geom!=="point"){const sc=pg.scale;
   if(geom==="line"){let L=0;for(let i=2;i<pts.length;i+=2)L+=Math.hypot(pts[i]-pts[i-2],pts[i+1]-pts[i-1]);m.l=String(r2(L/sc))}
@@ -1107,6 +1115,7 @@ $("repMode").querySelectorAll("button").forEach(b=>b.onclick=async()=>{const p=P
 
 /* ───────── 표준 외관조사망도 생성 (망도 없는 시설물용) ───────── */
 const SHEET={w:1190.55,h:841.89};
+let ZC=null;const zr=(name,x,y,w,h)=>{if(ZC&&w>0&&h>0)ZC.push({name,box:[r1(x),r1(y),r1(x+w),r1(y+h)]})};
 const SFONT="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif";
 const STD_TB=[875,40,1160,560],STD_LB=[875,572,1160,762];
 const DA={x0:50,y0:80,x1:840,y1:740,cx:445,cy:415};
@@ -1119,6 +1128,7 @@ function supCircle(x,y,label){return`<circle cx="${x}" cy="${y}" r="13" fill="#f
 function dirArrows(a,b){return sT(DA.x0+10,70,`← ${a||"시점"}`,11,"start")+sT(DA.x1-10,70,`${b||"종점"} →`,11,"end")}
 /* 평면(교면포장·바닥판 하면 등) */
 function bodyPlan(L,B,o){const s=fitS(L,B);const w=L*s,h=B*s,x=DA.cx-w/2,y=DA.cy-h/2;let g=sR(x,y,w,h,1.3);
+ if(o.kind==="deck"){const r=Math.min(0.5*s,h*0.08);zr("난간및연석",x,y,w,r);zr(o.zone||"교면포장",x,y+r,w,h-2*r);zr("난간및연석",x,y+h-r,w,r)}else zr(o.zone||"바닥판",x,y,w,h);
  if(o.kind==="deck"){const r=Math.min(0.5*s,h*0.08);g+=sL(x,y+r,x+w,y+r,0.6)+sL(x,y+h-r,x+w,y+h-r,0.6);const lanes=Math.max(1,Math.round((B-1)/3.5));for(let i=1;i<lanes;i++){const yy=y+r+(h-2*r)*i/lanes;g+=sL(x,yy,x+w,yy,0.6,"6 5")}
   g+=sT(x+w/2,y-8,"(난간·연석)",8,"middle",'fill="#666"')}
  if(o.kind==="soffit"&&o.girders>0){const n=o.girders;for(let i=0;i<n;i++){const yy=y+h*(i+0.5)/n;g+=sL(x,yy,x+w,yy,0.7,"8 4")+sT(x-6,yy+3,"G"+(i+1),8,"end")}
@@ -1130,11 +1140,12 @@ function bodyPlan(L,B,o){const s=fitS(L,B);const w=L*s,h=B*s,x=DA.cx-w/2,y=DA.cy
 /* 띠(거더·벽체 입면 등) 여러 줄 */
 function bodyStrips(L,strips,o){const gap=Math.max(0.8,strips.reduce((a,b)=>Math.max(a,b.h),0)*0.5);const tot=strips.reduce((a,b)=>a+b.h,0)+gap*(strips.length-1);
  const s=fitS(L,tot,0.82,0.78);const w=L*s;const x=DA.cx-w/2+20;let y=DA.cy-tot*s/2;let g="";
- strips.forEach(st=>{const h=st.h*s;g+=sR(x,y,w,h,1.1);g+=sT(x-8,y+h/2+3,st.label,9,"end");(o.ticks||[0,0.5,1]).forEach(f=>{g+=sL(x+w*f,y,x+w*f,y+h,0.5,"3 3")});y+=h+gap*s});
+ strips.forEach(st=>{const h=st.h*s;g+=sR(x,y,w,h,1.1);zr(st.zone||o.zone||st.label,x,y,w,h);g+=sT(x-8,y+h/2+3,st.label,9,"end");(o.ticks||[0,0.5,1]).forEach(f=>{g+=sL(x+w*f,y,x+w*f,y+h,0.5,"3 3")});y+=h+gap*s});
  const yb=y-gap*s;if(o.a)g+=supCircle(x,yb+18,o.a);if(o.b)g+=supCircle(x+w,yb+18,o.b);
  g+=sT(x+w/2,DA.cy-tot*s/2-12,`L = ${f2(L)} m`,10);return{g:g+dirArrows(o.dirA,o.dirB),s}}
 /* 교대 입면 */
 function bodyAbut(B,Ha,name){const wing=5,Hp=1.5,Hf=1.0;const s=fitS(B+2*wing+2,Ha+Hp+Hf+1,0.86,0.7);const W=B*s,x=DA.cx-W/2,yTop=DA.cy-(Ha+Hp+Hf)*s/2;let g="";
+ zr("흉벽",x,yTop,W,Hp*s);zr("구체",x,yTop+Hp*s,W,Ha*s);zr("기초",x-1*s,yTop+(Hp+Ha)*s,W+2*s,Hf*s);zr("날개벽",x-wing*s,yTop,wing*s,(Hp+Ha)*s);zr("날개벽",x+W,yTop,wing*s,(Hp+Ha)*s);
  g+=sR(x,yTop,W,Hp*s,1)+sT(x+W/2,yTop+Hp*s/2+3,"흉벽",9);g+=sR(x,yTop+Hp*s,W,Ha*s,1.3)+sT(x+W/2,yTop+Hp*s+Ha*s/2,"구 체",11);
  g+=sR(x-1*s,yTop+(Hp+Ha)*s,W+2*s,Hf*s,1)+sT(x+W/2,yTop+(Hp+Ha+Hf/2)*s+3,"기 초",9);
  const wl=`<polygon points="${x},${yTop} ${x-wing*s},${yTop+(Hp+Ha)*s-1.5*s} ${x-wing*s},${yTop+(Hp+Ha)*s} ${x},${yTop+(Hp+Ha)*s}" fill="none" stroke="#111" stroke-width="1"/>`;
@@ -1143,22 +1154,23 @@ function bodyAbut(B,Ha,name){const wing=5,Hp=1.5,Hf=1.0;const s=fitS(B+2*wing+2,
  g+=sT(x+W/2,yTop-12,`${name} 전면  B = ${f2(B)} m, H = ${f2(Ha)} m`,10);return{g,s}}
 /* 교각 입면 */
 function bodyPier(B,Hp,type,name){const Hc=type==="col"?1.5:type==="t"?2.0:0,Hf=1.2;const tot=Hp+Hf;const s=fitS(B+3,tot+1,0.86,0.72);const W=B*s,x=DA.cx-W/2,yTop=DA.cy-tot*s/2;let g="";
- if(type==="wall"){const ww=W*0.8;g+=sR(DA.cx-ww/2,yTop,ww,Hp*s,1.3)+sT(DA.cx,yTop+Hp*s/2,"구 체(벽식)",11)}
- else{g+=sR(x,yTop,W,Hc*s,1.2)+sT(DA.cx,yTop+Hc*s/2+3,"코 핑",9);
-  const nc=type==="t"?1:(B>15?3:2),cw=(type==="t"?3:1.5)*s;for(let i=0;i<nc;i++){const cx=nc===1?DA.cx:x+W*0.12+(W*0.76)*i/(nc-1);g+=sR(cx-cw/2,yTop+Hc*s,cw,(Hp-Hc)*s,1.2)+sT(cx,yTop+(Hc+(Hp-Hc)/2)*s,"기둥"+(nc>1?(i+1):""),8)}}
- const fw=(type==="wall"?W*0.8:W)+2*s;g+=sR(DA.cx-fw/2,yTop+Hp*s,fw,Hf*s,1)+sT(DA.cx,yTop+(Hp+Hf/2)*s+3,"기 초",9);
+ if(type==="wall"){const ww=W*0.8;zr("구체",DA.cx-ww/2,yTop,ww,Hp*s);g+=sR(DA.cx-ww/2,yTop,ww,Hp*s,1.3)+sT(DA.cx,yTop+Hp*s/2,"구 체(벽식)",11)}
+ else{zr("코핑",x,yTop,W,Hc*s);g+=sR(x,yTop,W,Hc*s,1.2)+sT(DA.cx,yTop+Hc*s/2+3,"코 핑",9);
+  const nc=type==="t"?1:(B>15?3:2),cw=(type==="t"?3:1.5)*s;for(let i=0;i<nc;i++){const cx=nc===1?DA.cx:x+W*0.12+(W*0.76)*i/(nc-1);zr("기둥",cx-cw/2,yTop+Hc*s,cw,(Hp-Hc)*s);g+=sR(cx-cw/2,yTop+Hc*s,cw,(Hp-Hc)*s,1.2)+sT(cx,yTop+(Hc+(Hp-Hc)/2)*s,"기둥"+(nc>1?(i+1):""),8)}}
+ const fw=(type==="wall"?W*0.8:W)+2*s;zr("기초",DA.cx-fw/2,yTop+Hp*s,fw,Hf*s);g+=sR(DA.cx-fw/2,yTop+Hp*s,fw,Hf*s,1)+sT(DA.cx,yTop+(Hp+Hf/2)*s+3,"기 초",9);
  g+=sT(DA.cx,yTop-12,`${name} 입면  H = ${f2(Hp)} m (${type==="wall"?"벽식":type==="col"?"기둥식":"T형"})`,10);return{g,s}}
 /* 받침·신축이음 배치 */
 function bodyBearing(sups,nRow){let g="";const x0=DA.x0+60,x1=DA.x1-40,y0=DA.y0+70,y1=DA.y1-80;const n=sups.length,rows=Math.max(1,nRow);
  sups.forEach((sp,i)=>{const x=n===1?(x0+x1)/2:x0+(x1-x0)*i/(n-1);g+=supCircle(x,y0-30,sp);
-  for(let r=0;r<rows;r++){const y=y0+(y1-y0)*(r+0.5)/rows;g+=`<rect x="${x-9}" y="${y-9}" width="18" height="18" fill="#fff" stroke="#111" stroke-width="1"/>`+sT(x,y+22,`B${i+1}-${r+1}`,7)}
+  for(let r=0;r<rows;r++){const y=y0+(y1-y0)*(r+0.5)/rows;zr("교량받침",x-14,y-14,28,28);g+=`<rect x="${x-9}" y="${y-9}" width="18" height="18" fill="#fff" stroke="#111" stroke-width="1"/>`+sT(x,y+22,`B${i+1}-${r+1}`,7)}
+  if(/^A/.test(sp)){const ex=x+(i===0?24:-24);zr("신축이음",ex-8,y0-10,16,y1-y0+20)}
   if(/^A/.test(sp))g+=sL(x+(i===0?22:-22),y0-10,x+(i===0?22:-22),y1+10,1.4)+sL(x+(i===0?26:-26),y0-10,x+(i===0?26:-26),y1+10,1.4)+sT(x+(i===0?24:-24),y1+26,"신축이음",8)});
  for(let r=0;r<rows;r++){const y=y0+(y1-y0)*(r+0.5)/rows;g+=sT(x0-34,y+3,rows>1?"G"+(r+1):"",9,"end")}
  return{g:g+sT(DA.cx,DA.y1-20,"□ 받침 위치(지점별·거더별)  ‖ 신축이음",9,"middle",'fill="#666"'),s:null}}
 /* 터널 전개도 */
 const parseSta=v=>{v=String(v||"").trim();const m=/^(\d+)\s*k\s*(\d+(?:\.\d+)?)$/i.exec(v);return m?(+m[1])*1000+(+m[2]):(num(v)||0)};
 const fmtSta=m=>`${Math.floor(m/1000)}k${String(Math.round(m%1000)).padStart(3,"0")}`;
-function bodyTunnel(a,b,P,J){const L=b-a;const s=fitS(L,P,0.84,0.72);const w=L*s,h=P*s,x=DA.cx-w/2+15,y=DA.cy-h/2+10;let g=sR(x,y,w,h,1.3);
+function bodyTunnel(a,b,P,J){const L=b-a;const s=fitS(L,P,0.84,0.72);const w=L*s,h=P*s,x=DA.cx-w/2+15,y=DA.cy-h/2+10;let g=sR(x,y,w,h,1.3);zr("라이닝",x,y,w,h);
  [["S.L",0],["S.H",0.25],["C",0.5],["S.H",0.75],["S.L",1]].forEach(([n,f])=>{const yy=y+h*f;if(f>0&&f<1)g+=sL(x,yy,x+w,yy,0.6,"8 4");g+=sT(x-8,yy+3,n,9,"end")});
  for(let m=Math.ceil(a/5)*5;m<=b+0.01;m+=5){const xx=x+(m-a)*s;const big=Math.round(m)%10===0;g+=sL(xx,y+h,xx,y+h+(big?8:4),0.6);if(big)g+=sT(xx,y+h+20,fmtSta(m),8)}
  if(J>0)for(let m=Math.ceil((a+0.01)/J)*J;m<b-0.01;m+=J){const xx=x+(m-a)*s;g+=sL(xx,y,xx,y+h,0.8,"10 3 2 3")}
@@ -1197,16 +1209,16 @@ function planStd(v){const out=[];const push=(title,member,span,fn)=>out.push({ti
  const sides=v.ud&&!cul?["상류","하류"]:[""];const Bs=v.ud&&!cul?B/2:B;
  for(let i=0;i<N;i++){const L=Lof(i),[a,b]=ab(i),sp=(cul?"C":"S")+(i+1);
   if(!cul)sides.forEach(sd=>push(`${sd?sd+"-":""}교면포장 ${sp}`,"교면포장",sp,()=>bodyPlan(L,Bs,{kind:"deck",a,b})));
-  if(cul){push(`상판 하면 ${sp}`,"상판 하면",sp,()=>bodyPlan(B,L,{kind:"slab",bLabel:"폭",dirA:"유입부",dirB:"유출부"}));push(`바닥판 ${sp}`,"바닥판",sp,()=>bodyPlan(B,L,{kind:"slab",bLabel:"폭",dirA:"유입부",dirB:"유출부"}));continue}
+  if(cul){push(`상판 하면 ${sp}`,"상판 하면",sp,()=>bodyPlan(B,L,{kind:"slab",zone:"상판",bLabel:"폭",dirA:"유입부",dirB:"유출부"}));push(`바닥판 ${sp}`,"바닥판",sp,()=>bodyPlan(B,L,{kind:"slab",zone:"바닥판",bLabel:"폭",dirA:"유입부",dirB:"유출부"}));continue}
   const gird=(f==="rc"||f==="psc"||f==="stbox")?G||(f==="stbox"?2:Math.max(3,Math.round(B/2.5))):0;
-  sides.forEach(sd=>push(`${sd?sd+"-":""}${ram||f==="slab"?"슬래브 하면":"바닥판 하면"} ${sp}`,ram||f==="slab"?"슬래브 하면":"바닥판 하면",sp,()=>bodyPlan(L,Bs,{kind:"soffit",girders:sd?Math.ceil(gird/2):gird,a,b})));
-  if(f==="rc"||f==="psc"){const hg=f==="psc"?2.0:1.2;const all=Array.from({length:gird},(_,k)=>k);for(let c=0;c<all.length;c+=8){const part=all.slice(c,c+8);push(`거더 ${sp}${all.length>8?` (G${part[0]+1}~G${part[part.length-1]+1})`:""}`,"거더",sp,()=>bodyStrips(L,part.map(k=>({h:hg,label:`G${k+1}${k===0||k===gird-1?" (외측)":""}`})),{a,b}))}}
+  sides.forEach(sd=>push(`${sd?sd+"-":""}${ram||f==="slab"?"슬래브 하면":"바닥판 하면"} ${sp}`,ram||f==="slab"?"슬래브 하면":"바닥판 하면",sp,()=>bodyPlan(L,Bs,{kind:"soffit",zone:ram||f==="slab"?"슬래브":"바닥판",girders:sd?Math.ceil(gird/2):gird,a,b})));
+  if(f==="rc"||f==="psc"){const hg=f==="psc"?2.0:1.2;const all=Array.from({length:gird},(_,k)=>k);for(let c=0;c<all.length;c+=8){const part=all.slice(c,c+8);push(`거더 ${sp}${all.length>8?` (G${part[0]+1}~G${part[part.length-1]+1})`:""}`,"거더",sp,()=>bodyStrips(L,part.map(k=>({h:hg,label:`G${k+1}${k===0||k===gird-1?" (외측)":""}`})),{a,b,zone:"거더"}))}}
   if(f==="stbox"){const ext=[],inn=[];for(let k=0;k<gird;k++){ext.push({h:2.2,label:`B${k+1} 좌측 복부`},{h:1.6,label:`B${k+1} 하판 하면`},{h:2.2,label:`B${k+1} 우측 복부`});inn.push({h:1.6,label:`B${k+1} 상판 하면`},{h:2.2,label:`B${k+1} 내측 복부(좌)`},{h:2.2,label:`B${k+1} 내측 복부(우)`},{h:1.6,label:`B${k+1} 하판 상면`})}
-   for(let c=0;c<ext.length;c+=6)push(`강박스 외부 ${sp}${ext.length>6?" ("+(c/6+1)+")":""}`,"강박스 외부",sp,(p=>()=>bodyStrips(L,p,{a,b,ticks:[0,0.25,0.5,0.75,1]}))(ext.slice(c,c+6)));
-   for(let c=0;c<inn.length;c+=8)push(`강박스 내부 ${sp}${inn.length>8?" ("+(c/8+1)+")":""}`,"강박스 내부",sp,(p=>()=>bodyStrips(L,p,{a,b,ticks:[0,0.25,0.5,0.75,1]}))(inn.slice(c,c+8)))}}
- if(cul){const walls=Array.from({length:N+1},(_,k)=>({h:Ha,label:`측벽 W${k+1}`}));for(let c=0;c<walls.length;c+=6)push(`측벽 ${walls.length>6?"("+(c/6+1)+")":"W1~W"+walls.length}`,"측벽","",(p=>()=>bodyStrips(B,p,{dirA:"유입부",dirB:"유출부",ticks:[0,1]}))(walls.slice(c,c+6)));
-  push("날개벽 (유입·유출)","날개벽","",()=>bodyStrips(6,[{h:Ha,label:"유입 좌"},{h:Ha,label:"유입 우"},{h:Ha,label:"유출 좌"},{h:Ha,label:"유출 우"}],{ticks:[0,1]}));return out}
- if(ram){const walls=Array.from({length:N+1},(_,k)=>({h:Ha,label:k===0?"벽체 W1(시점)":k===N?`벽체 W${N+1}(종점)`:`벽체 W${k+1}`}));for(let c=0;c<walls.length;c+=6)push(`벽체 ${walls.length>6?"("+(c/6+1)+")":"전면"}`,"벽체","",(p=>()=>bodyStrips(B,p,{dirA:"좌측",dirB:"우측",ticks:[0,1]}))(walls.slice(c,c+6)));return out}
+   for(let c=0;c<ext.length;c+=6)push(`강박스 외부 ${sp}${ext.length>6?" ("+(c/6+1)+")":""}`,"강박스 외부",sp,(p=>()=>bodyStrips(L,p,{a,b,zone:"강박스",ticks:[0,0.25,0.5,0.75,1]}))(ext.slice(c,c+6)));
+   for(let c=0;c<inn.length;c+=8)push(`강박스 내부 ${sp}${inn.length>8?" ("+(c/8+1)+")":""}`,"강박스 내부",sp,(p=>()=>bodyStrips(L,p,{a,b,zone:"강박스",ticks:[0,0.25,0.5,0.75,1]}))(inn.slice(c,c+8)))}}
+ if(cul){const walls=Array.from({length:N+1},(_,k)=>({h:Ha,label:`측벽 W${k+1}`}));for(let c=0;c<walls.length;c+=6)push(`측벽 ${walls.length>6?"("+(c/6+1)+")":"W1~W"+walls.length}`,"측벽","",(p=>()=>bodyStrips(B,p,{zone:"측벽",dirA:"유입부",dirB:"유출부",ticks:[0,1]}))(walls.slice(c,c+6)));
+  push("날개벽 (유입·유출)","날개벽","",()=>bodyStrips(6,[{h:Ha,label:"유입 좌"},{h:Ha,label:"유입 우"},{h:Ha,label:"유출 좌"},{h:Ha,label:"유출 우"}],{zone:"날개벽",ticks:[0,1]}));return out}
+ if(ram){const walls=Array.from({length:N+1},(_,k)=>({h:Ha,label:k===0?"벽체 W1(시점)":k===N?`벽체 W${N+1}(종점)`:`벽체 W${k+1}`}));for(let c=0;c<walls.length;c+=6)push(`벽체 ${walls.length>6?"("+(c/6+1)+")":"전면"}`,"벽체","",(p=>()=>bodyStrips(B,p,{zone:"벽체",dirA:"좌측",dirB:"우측",ticks:[0,1]}))(walls.slice(c,c+6)));return out}
  push("교대 A1","교대","A1",()=>bodyAbut(B,Ha,"A1"));for(let k=1;k<N;k++)push(`교각 P${k}`,"교각","P"+k,()=>bodyPier(B,Hp,v.pier,"P"+k));push("교대 A2","교대","A2",()=>bodyAbut(B,Ha,"A2"));
  const sups=["A1"].concat(Array.from({length:N-1},(_,k)=>"P"+(k+1)),["A2"]);push("받침 및 신축이음","받침·신축이음","",()=>bodyBearing(sups,f==="slab"?3:(G||(f==="stbox"?2:Math.max(3,Math.round(B/2.5))))*(f==="stbox"?2:1)));
  return out}
@@ -1225,9 +1237,9 @@ async function runStd(){const v=stdVals();const list=planStd(v);if(!list.length)
  closeM("mStd");let idx=sortedPages().length;const base=sortedPages().filter(pg=>/^\d+$/.test(pg.no||"")).reduce((a,pg)=>Math.max(a,+pg.no),0);let first=null;const nd=String(base+list.length).length<2?2:String(base+list.length).length;
  const norm=b=>[Math.round(b[0]/SHEET.w*1000),Math.round(b[1]/SHEET.h*1000),Math.round(b[2]/SHEET.w*1000),Math.round(b[3]/SHEET.h*1000)];
  try{for(let i=0;i<list.length;i++){const it=list[i];progress(`표준 망도 만드는 중 ${i+1}/${list.length}`,(i+1)/list.length);
-   const no=String(base+i+1).padStart(nd,"0");const bd=it.fn();const svg=sheetSvg({title:it.title,no,struct:P().name,proj:v.proj,body:bd.g});
+   const no=String(base+i+1).padStart(nd,"0");ZC=[];const bd=it.fn();const zones=ZC.map(z=>({id:"Z"+uid().slice(0,8),...z}));ZC=null;const svg=sheetSvg({title:it.title,no,struct:P().name,proj:v.proj,body:bd.g});
    const blob=await svgToPng(svg,2.7);const id=await addPage(blob,SHEET.w,SHEET.h,it.title,idx++,no);first=first||id;
-   const pg={...S.pages.get(id),member:it.member,span:it.span,isDrawing:true,std:true,ai:{tableBox:norm(STD_TB),legendBox:norm(STD_LB)},tableCols:DEF_COLS.slice(),tableFields:{...DEF_F}};if(bd.s)pg.scale=Math.round(bd.s*1000)/1000;await savePage(pg)}
+   const pg={...S.pages.get(id),member:it.member,span:it.span,isDrawing:true,std:true,ai:{tableBox:norm(STD_TB),legendBox:norm(STD_LB)},tableCols:DEF_COLS.slice(),tableFields:{...DEF_F},zones};if(bd.s)pg.scale=Math.round(bd.s*1000)/1000;await savePage(pg)}
   progress(null);S.pageId=first;showPage(true);renderPageList();toast(`표준 망도 ${list.length}장을 만들었어요${v.type==="bridge"?" — 축척이 맞춰져 있어 길이·면적이 자동 계산돼요":""}`,5000)}
  catch(e){progress(null);toast("표준 망도 만들기 실패: "+(e.message||e.code||e),6000)}}
 $("sdType").querySelectorAll("button").forEach(b=>b.onclick=()=>{$("sdType").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));stdRefresh()});
@@ -1282,6 +1294,32 @@ function addDuplicate(base){const pg=S.pages.get(base.page);if(!pg)return;
  const bb=base.badge||[pts[0]+8,pts[1]-8];
  const m={id:uid(),page:base.page,type,geom,pts,badge:[r1(bb[0]+13),r1(bb[1])],status:"신규",loc:base.loc||"",desc:lg(type).presets[0],span:base.span||pg.span||"",w:"",l:base.l||"",b:base.b||"",cnt:base.cnt||"1",photo:base.photo||"",note:"",author:base.author||ls("ins.author")||"",dupOf:base.id,createdAt:Date.now()};
  openMark(m,true);toast("같은 자리의 중복 손상이에요 — 종류와 규격을 확인하세요 (백태면 너비 입력)",4500)}
+/* ───────── 부재 구역 ───────── */
+S.showZones=true;
+function centroid(p){if(!p||p.length<2)return[0,0];let x=0,y=0,n=0;for(let i=0;i<p.length;i+=2){x+=p[i];y+=p[i+1];n++}return[x/n,y/n]}
+function zoneAt(pg,x,y){const zs=(pg&&pg.zones)||[];let best=null,ba=1e18;zs.forEach(z=>{const[a,b,c,d]=z.box;if(x>=a&&x<=c&&y>=b&&y<=d){const ar=(c-a)*(d-b);if(ar<ba){ba=ar;best=z}}});return best}
+function zonesSvg(pg){const zs=(pg&&pg.zones)||[];if(!zs.length)return"";const on=S.mode==="zone";if(!on&&!S.showZones)return"";
+ return`<g style="pointer-events:none">${zs.map(z=>{const[a,b,c,d]=z.box;const fs=on?Math.max(6,Math.min(11,(d-b)*0.5)):Math.max(4,Math.min(6,(d-b)*0.4));
+  return`<rect x="${a}" y="${b}" width="${c-a}" height="${d-b}" fill="${on?"rgba(37,99,235,.08)":"none"}" stroke="${on?"#2563eb":"#94a3b8"}" stroke-width="${on?0.9:0.4}" stroke-dasharray="${on?"4 2":"2 2"}"/><text x="${a+2}" y="${b+fs+1}" font-size="${fs}" fill="${on?"#1d4ed8":"#94a3b8"}" font-family="sans-serif" font-weight="${on?700:400}">${esc(z.name)}</text>`}).join("")}</g>`}
+async function editZone(pg,z){const v=await ask("부재 구역 수정","이름을 고치거나, 비우고 확인하면 이 구역을 지워요",z.name,{list:"dlLoc"});if(v==null)return;const cur=S.pages.get(pg.id);
+ const zs=(cur.zones||[]).map(x=>x.id===z.id?{...x,name:v.trim()}:x).filter(x=>x.name);await savePage({...cur,zones:zs});renderMarks();toast(v.trim()?"구역 이름을 바꿨어요":"구역을 지웠어요")}
+function zoneBar(){const on=S.mode==="zone"&&!!curPage();$("zoneBar").style.display=on?"flex":"none";$("zAi").style.display=$("zAiAll").style.display=aiReady()?"":"none"}
+$("zDone").onclick=()=>{S.mode="draw";renderTools();renderMarks();zoneBar()};
+$("zClear").onclick=async()=>{const pg=curPage();if(!pg||!(pg.zones||[]).length)return;if(!await confirmBox("구역 지우기",`이 도면의 부재 구역 ${pg.zones.length}개를 모두 지울까요?`))return;await savePage({...pg,zones:[]});renderMarks()};
+$("zCopy").onclick=async()=>{const pg=curPage();if(!pg||!(pg.zones||[]).length){toast("먼저 이 도면에 구역을 나누세요");return}
+ const key=String(pg.member||"").trim();const tg=sortedPages().filter(p=>p.id!==pg.id&&p.isDrawing!==false&&(key?String(p.member||"").trim()===key:false));
+ if(!tg.length){toast(key?`'${key}' 부재 도면이 더 없어요 (도면정보의 망도부재로 판단)`:"도면정보에 망도부재가 없어 같은 부재 도면을 찾을 수 없어요",5000);return}
+ if(!await confirmBox("구역 복사",`이 도면의 구역 ${pg.zones.length}개를 '${key}' 도면 ${tg.length}장에 복사할까요? 그 도면들의 기존 구역은 바뀝니다.`))return;
+ for(const p of tg){const sx=p.w/pg.w,sy=p.h/pg.h;await savePage({...p,zones:pg.zones.map(z=>({id:"Z"+uid().slice(0,8),name:z.name,box:[r1(z.box[0]*sx),r1(z.box[1]*sy),r1(z.box[2]*sx),r1(z.box[3]*sy)]}))})}
+ toast(`${tg.length}장에 구역을 복사했어요`)};
+const ZONE_PROMPT=`이 이미지는 시설물 외관조사망도입니다. 도면(그림) 영역을 부재별 구역으로 나누세요. 표제란·범례·손상물량표·KEY PLAN은 제외하고, 손상을 그려 넣는 망도 그림 안에서만 나눕니다. 이름은 망도에 적힌 부재명이나 표준 명칭(교면포장, 난간및연석, 배수시설, 신축이음, 바닥판, 거더, 가로보, 교량받침, 흉벽, 구체, 날개벽, 기초, 코핑, 기둥, 라이닝 등)을 쓰세요. 구역은 겹쳐도 되고, 작은 부재(배수구·난간 띠 등)는 작은 구역으로 따로 두세요. JSON 하나만 출력: {"zones":[{"name":"난간및연석","box":[x0,y0,x1,y1]}]} 좌표는 이미지 왼쪽위 0 ~ 오른쪽아래 1000.`;
+async function aiZones(ids){if(!aiReady()){toast("이 화면에서는 AI를 쓸 수 없어요",4000);return}let i=0,done=0,fail=0;progress(`부재 구역 AI 판독 0/${ids.length}`,0);
+ const work=async id=>{try{const pg=S.pages.get(id);if(!pg||pg.isDrawing===false)return;const bm=await pageBitmap(pg);const r=await aiJson(ZONE_PROMPT,await cropBlob(bm,0,0,bm.width,bm.height,1568));bm.close&&bm.close();
+   const zs=(r.zones||[]).filter(z=>z&&z.name&&validBox(z.box)).map(z=>({id:"Z"+uid().slice(0,8),name:String(z.name).trim(),box:[r1(z.box[0]/1000*pg.w),r1(z.box[1]/1000*pg.h),r1(z.box[2]/1000*pg.w),r1(z.box[3]/1000*pg.h)]}));
+   if(zs.length)await savePage({...S.pages.get(id),zones:zs})}catch(e){console.warn(e);fail++}done++;progress(`부재 구역 AI 판독 ${done}/${ids.length}`,done/ids.length)};
+ await Promise.all([0,1,2].map(async()=>{while(i<ids.length)await work(ids[i++])}));progress(null);renderMarks();toast(`부재 구역 판독 완료${fail?` (실패 ${fail}장)`:""} — 틀린 구역은 눌러서 고치세요`,5000)}
+$("zAi").onclick=()=>{const pg=curPage();if(pg)aiZones([pg.id])};
+$("zAiAll").onclick=async()=>{const ids=sortedPages().filter(p=>p.isDrawing!==false).map(p=>p.id);if(await confirmBox("부재 구역 AI 판독",`도면 ${ids.length}장의 부재 구역을 AI가 나눕니다. 이미 나눈 구역은 바뀝니다.`))aiZones(ids)};
 /* ───────── 시작 ───────── */
 function init(){
  const t=ls("ins.tool");if(t&&legend().some(l=>l.k===t))S.tool=t;const mc=ls("ins.mc");if(mc&&MEMO_COLORS.includes(mc))S.memoColor=mc;
