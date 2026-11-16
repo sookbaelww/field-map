@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#2563eb">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script>window.STANDALONE=true;window.APP_VERSION="202611161353";
+<script>window.STANDALONE=true;window.APP_VERSION="202611161417";
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 
 <script src="lib/pdf.min.js"></script>
@@ -293,7 +293,46 @@ const PATS=[["diag","사선"],["diag2","역사선"],["cross","교차사선"],["g
 const LG=Object.fromEntries(BRIDGE.concat(TUNNEL).map(l=>[l.k,l]));
 let PLEG=null; // 현재 시설물(망도)에서 읽어 온 범례
 function legend(){if(PLEG)return PLEG;const p=S.projects.get(S.pid);return DEFSETS[(p&&p.facType)||"bridge"]}
-function lg(k){return legend().find(l=>l.k===k)||LG[k]||{k,n:"(삭제된 범례)",g:"area",c:"#111111",aci:7,presets:[""]}}
+/* 부재별 손상 기본표 (세부지침 상태평가 부재 기준 초안) */
+const L_="line",A_="area",P_="point";
+const MEMBER_CAT={bridge:[
+ {n:"교면포장",al:["포장"],d:[["균열",L_],["망상균열",A_],["포트홀",A_],["패칭",A_],["소성변형",A_],["박리",A_],["들뜸",A_]]},
+ {n:"바닥판",al:["바닥판하면","슬래브","상판"],d:[["균열",L_],["망상균열",A_],["박리·박락",A_],["철근노출",A_],["백태",A_],["누수·누수흔적",A_],["재료분리",A_]]},
+ {n:"거더(콘크리트)",al:["거더","거더외부","거더내부"],only:"conc",d:[["균열",L_],["박리·박락",A_],["철근노출",A_],["백태",A_],["누수",A_],["재료분리",A_],["파손",A_]]},
+ {n:"거더(강재)",al:["거더","강박스","강박스외부","강박스내부"],only:"steel",d:[["부식",A_],["도장박리",A_],["변형·좌굴",L_],["용접부 균열",L_],["볼트 이완·탈락",P_]]},
+ {n:"가로보·세로보",al:["가로보","세로보","격벽"],d:[["균열",L_],["박리·박락",A_],["철근노출",A_],["백태",A_],["부식",A_],["볼트 탈락",P_]]},
+ {n:"교량받침",al:["받침","교량받침"],d:[["부식",A_],["받침 파손",P_],["이동량 이상",P_],["받침콘크리트 균열",L_],["받침콘크리트 파손",A_],["앵커볼트 이완·탈락",P_]]},
+ {n:"신축이음",al:["신축이음장치","이음"],d:[["유간 이상",P_],["본체 파손",A_],["토사퇴적",A_],["후타재 균열",L_],["후타재 파손",A_],["단차",L_],["누수",A_],["볼트 탈락",P_]]},
+ {n:"교대·교각",al:["교대","교각","흉벽","구체","코핑","기둥","벽체","측벽"],d:[["균열",L_],["박리·박락",A_],["철근노출",A_],["백태",A_],["누수",A_],["재료분리",A_],["충돌흔",A_]]},
+ {n:"기초",al:["기초","확대기초"],d:[["세굴",A_],["노출",A_],["침하",P_]]},
+ {n:"날개벽",al:["날개벽"],d:[["균열",L_],["박리",A_],["백태",A_],["배부름",A_]]},
+ {n:"배수시설",al:["배수구","배수","배수관"],d:[["배수구 막힘",P_],["배수구 파손",P_],["유도배수관 탈락·파손",P_],["부식",A_]]},
+ {n:"난간·연석",al:["난간","연석","난간및연석","방호벽"],d:[["파손",A_],["변형",L_],["부식",A_],["도장박리",A_],["균열",L_],["박리",A_],["충돌흔",A_]]}],
+ tunnel:[
+ {n:"라이닝",al:["아치","측벽","천장","라이닝"],d:[["균열",L_],["망상균열",A_],["박리",A_],["박락",A_],["층분리·들뜸",A_],["재료분리",A_],["철근노출",A_],["백태",A_],["보수부 손상",A_]]},
+ {n:"라이닝 누수",al:["누수"],d:[["누수(적수)",A_],["누수(유수)",A_],["누수(분출)",P_],["누수흔적·습윤",A_],["결빙",A_]]},
+ {n:"시공이음·신축이음",al:["시공이음","신축이음","이음"],d:[["이음부 누수",L_],["이음부 파손",L_],["단차",L_],["실링재 탈락",L_]]},
+ {n:"갱문",al:["갱문","갱구"],d:[["균열",L_],["박리",A_],["백태",A_],["누수",A_]]},
+ {n:"배수시설",al:["측구","집수정","배수"],d:[["막힘",P_],["파손",A_],["토사퇴적",A_]]},
+ {n:"포장·바닥",al:["포장","바닥","노면"],d:[["균열",L_],["침하",A_],["융기",A_]]},
+ {n:"부대시설 고정부",al:["부대시설","조명","환기"],d:[["부식",A_],["앵커 이완·탈락",P_]]}]};
+const VIRT={};const VPATS=["diag","grid","dots","hor","cross","wave","ver","dots2","diag2","hor2"];
+const nrm=t=>String(t||"").replace(/\([^)]*\)/g,"").replace(/[\s·,.\-\/]|및/g,"");
+function catDmgG(name){for(const f of Object.values(MEMBER_CAT))for(const m of f)for(const[d,g]of m.d)if(d===name)return g;return"area"}
+function makeVirt(name,g){const k="v:"+name;if(!VIRT[k]){const i=Object.keys(VIRT).length;VIRT[k]={k,n:name,g:g||catDmgG(name),c:"#475569",aci:8,pat:VPATS[i%VPATS.length],presets:[name],virt:true}}return VIRT[k]}
+function lg(k){return legend().find(l=>l.k===k)||VIRT[k]||(String(k).startsWith("v:")?makeVirt(String(k).slice(2)):null)||LG[k]||{k,n:"(삭제된 범례)",g:"area",c:"#111111",aci:7,presets:[""]}}
+const defsLegend=()=>legend().concat(Object.values(VIRT));
+/* 손상명 → 망도 범례(해치) 연결. 없으면 기본 해치 */
+function dmgTool(name,g){const d=nrm(name);let best=null,sc=0;
+ legend().forEach(l=>{String(l.n).split(/[·,\/]|\s및\s/).concat([l.n]).forEach(part=>{const q=nrm(part);if(!q)return;let v=0;if(q===d)v=1000+(l.g===g?500:0)+(String(l.n).length===part.length?100:0)+q.length;else if(l.g===g&&d.includes(q))v=q.length;if(v>sc){sc=v;best=l}})});
+ return best?{k:best.k,n:name}:{k:makeVirt(name,g).k,n:name}}
+function pageMemberList(pg){const P0=S.projects.get(S.pid);const ft=(P0&&P0.facType)||"bridge";const form=P0&&P0.bridgeForm;
+ const cat=MEMBER_CAT[ft].filter(m=>!m.only||!form||(m.only==="steel"?form==="stbox":form!=="stbox"));
+ const findCat=n=>{const q=nrm(n);return cat.find(m=>nrm(m.n)===q||m.al.some(a=>nrm(a)===q))||cat.find(m=>m.al.some(a=>q.includes(nrm(a))&&nrm(a).length>=2))};
+ const names=memberSuggest(pg);const out=[];const used=new Set();
+ names.forEach(n=>{const c=findCat(n);const key=n+"|"+(c?c.n:"");if(used.has(n))return;used.add(n);out.push({label:n,loc:n,cat:c})});
+ cat.forEach(c=>{if(!out.some(o=>o.cat===c))out.push({label:c.n,loc:c.n.replace(/\(.*\)/,""),cat:c,extra:true})});
+ return out}
 const ACI=[[1,255,0,0],[2,255,255,0],[3,0,200,0],[4,0,200,200],[5,0,0,255],[6,255,0,255],[7,20,20,20],[8,128,128,128],[9,192,192,192],[30,255,127,0],[40,255,191,0],[140,0,127,255],[200,127,0,255],[14,127,63,0],[94,0,127,0]];
 function hexToAci(h){const m=/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(h||"");if(!m)return 7;const[r,g,b]=[1,2,3].map(i=>parseInt(m[i],16));let best=7,bd=1e9;ACI.forEach(([a,R,G,B])=>{const d=(r-R)**2+(g-G)**2+(b-B)**2;if(d<bd){bd=d;best=a}});return best}
 function rebuildLegend(){const p=S.projects.get(S.pid);const L=p&&Array.isArray(p.legend)&&p.legend.length?p.legend:null;
@@ -414,7 +453,7 @@ if(l.icon)return`<img src="${l.icon}" style="width:40px;height:22px;object-fit:c
  const c=l.c;
  if(l.g==="line")return`<svg viewBox="0 0 40 22"><path d="M3 15 L12 8 L20 13 L28 6 L37 10" fill="none" stroke="${c}" stroke-width="2.4" ${l.dash?`stroke-dasharray="${l.dash.split(" ").map(v=>v*1.6).join(" ")}"`:""}/></svg>`;
  if(l.g==="point")return`<svg viewBox="0 0 40 22"><circle cx="20" cy="11" r="7" fill="#fff" stroke="${c}" stroke-width="2"/><text x="20" y="15" font-size="10" text-anchor="middle" fill="${c}">★</text></svg>`;
- return`<svg viewBox="0 0 40 22"><rect x="4" y="3" width="32" height="16" fill="url(#ip_${l.k})" stroke="${c}" stroke-width="1.8"/></svg>`;
+ return`<svg viewBox="0 0 40 22"><rect x="4" y="3" width="32" height="16" fill="url(#ip_${String(l.k).replace(/[^\w-]/g,"_")})" stroke="${c}" stroke-width="1.8"/></svg>`;
 }
 function buildTools(){
  const t=$("tools");let h=`<svg width="0" height="0" style="position:absolute"><defs>${legend().filter(l=>l.g==="area").map(l=>patternDef("ip_"+l.k,l,3)).join("")}</defs></svg>`;
@@ -423,14 +462,25 @@ function buildTools(){
  h+=`<button class="tool" data-mode="zone"><span class="mode">🧩</span>부재구역</button>`;
  h+=`<button class="tool" data-mode="memo"><span class="mode">✏️</span>메모펜</button><button class="tool" data-mode="text"><span class="mode">🔤</span>글상자</button>`;
  h+=`<div style="display:flex;justify-content:center;gap:5px;padding:2px 0" id="memoColors">${MEMO_COLORS.map(c=>`<span data-mc="${c}" style="width:16px;height:16px;border-radius:50%;background:${c};border:2px solid ${c===S.memoColor?"#facc15":"#fff"};box-shadow:0 0 0 1px #9ca3af;cursor:pointer"></span>`).join("")}</div><div class="sep"></div>`;
- legend().forEach(l=>h+=`<button class="tool" data-k="${l.k}">${legendIcon(l)}${l.n}</button>`);
+ const pg=curPage();const mem=pg?pageMemberList(pg):[];const sel=S.memberSel;
+ h+=`<div class="muted" style="font-size:10px;text-align:center;margin:2px 0">부재</div><button class="tool" data-mem="" style="${!sel?"border-color:var(--acc);background:#e8efff":""};font-size:11px">전체 범례</button>`;
+ const toolsFor=m=>{const c=m.cat;if(!c)return legend().map(l=>({k:l.k,n:l.n}));return c.d.map(([n,g])=>dmgTool(n,g))};
+ let shownExtra=false;
+ mem.forEach((m,i)=>{if(m.extra&&!shownExtra){h+=`<div class="muted" style="font-size:9.5px;text-align:center;margin-top:4px">다른 부재</div>`;shownExtra=true}
+  const on=sel&&sel.label===m.label;h+=`<button class="tool" data-mem="${i}" style="font-size:11px;font-weight:${on?700:500};${on?"border-color:var(--acc);background:#e8efff":""}">${esc(m.label)}</button>`;
+  if(on){toolsFor(m).forEach(t=>{const l=lg(t.k);h+=`<button class="tool" data-k="${t.k}" data-dn="${esc(t.n)}" style="margin-left:4px">${legendIcon(l)}${esc(t.n)}</button>`});h+=`<div class="sep"></div>`}});
+ if(!sel){h+=`<div class="sep"></div>`;legend().forEach(l=>h+=`<button class="tool" data-k="${l.k}">${legendIcon(l)}${l.n}</button>`)}
+ h=h.replace("</defs></svg>",Object.values(VIRT).filter(l=>l.g==="area").map(l=>patternDef("ip_"+l.k.replace(/[^\w-]/g,"_"),l,3)).join("")+"</defs></svg>");
  t.innerHTML=h;
+ t.querySelectorAll("[data-mem]").forEach(b=>b.onclick=()=>{const i=b.dataset.mem;if(i===""){S.memberSel=null}else{const m=mem[+i];S.memberSel=(S.memberSel&&S.memberSel.label===m.label)?null:{label:m.label,loc:m.loc,cat:m.cat?m.cat.n:null};
+   if(S.memberSel){const ts=toolsFor(m);if(ts.length){S.mode="draw";S.tool=ts[0].k;S.toolDesc=ts[0].n}}}
+  buildTools();hint(S.memberSel?`부재: ${S.memberSel.loc} — 이 부재의 손상만 보여요. 그리면 손상위치에 '${S.memberSel.loc}'이(가) 들어가요`:"전체 범례 — 손상위치는 부재 구역으로 자동 입력",3500)});
  t.querySelectorAll("[data-mc]").forEach(d=>d.onclick=()=>{S.memoColor=d.dataset.mc;ls("ins.mc",S.memoColor);if(S.mode!=="memo"&&S.mode!=="text")S.mode="memo";buildTools()});
- t.querySelectorAll(".tool").forEach(b=>b.onclick=()=>{if(b.dataset.mode){S.mode=b.dataset.mode}else{S.mode="draw";S.tool=b.dataset.k}ls("ins.tool",S.tool);renderTools();renderMarks();zoneBar();
+ t.querySelectorAll(".tool:not([data-mem])").forEach(b=>b.onclick=()=>{if(b.dataset.mode){S.mode=b.dataset.mode}else{S.mode="draw";S.tool=b.dataset.k;S.toolDesc=b.dataset.dn||null}ls("ins.tool",S.tool);renderTools();renderMarks();zoneBar();
   hint(S.mode==="draw"?`${lg(S.tool).n}: ${lg(S.tool).g==="line"?"선으로 그리세요":lg(S.tool).g==="area"?"영역을 둘러 그리세요":"위치를 톡 찍으세요"} (한 번 톡 = 점 표시)`:S.mode==="select"?"손상을 눌러 수정 · 번호 동그라미는 끌어서 이동":S.mode==="zone"?"▤ 띠로 나누기로 테두리를 감싸고, 선을 끌어 맞추세요 · 칸을 누르면 이름":S.mode==="memo"?"자유 메모 (손상 목록에는 안 들어가요) · 꾹 누르면 삭제":S.mode==="text"?"글자를 넣을 곳을 톡 찍으세요 · 글상자를 누르면 수정":"끌어서 이동, 두 손가락으로 확대")});
  renderTools();
 }
-function renderTools(){$("tools").querySelectorAll(".tool").forEach(b=>b.classList.toggle("on",b.dataset.mode?S.mode===b.dataset.mode:(S.mode==="draw"&&S.tool===b.dataset.k)))}
+function renderTools(){$("tools").querySelectorAll(".tool:not([data-mem])").forEach(b=>b.classList.toggle("on",b.dataset.mode?S.mode===b.dataset.mode:(S.mode==="draw"&&S.tool===b.dataset.k&&(!b.dataset.dn||b.dataset.dn===S.toolDesc))))}
 function hint(t,ms=2500){const e=$("hint");e.textContent=t;e.style.display="block";clearTimeout(hint._t);hint._t=setTimeout(()=>e.style.display="none",ms)}
 
 /* 해치 패턴 */
@@ -480,7 +530,7 @@ function showPage(fit){
  const src=pg.asset?("/_blob/"+pg.asset):(S.localUrls[pg.id]||"");
  if($("pimg").getAttribute("src")!==src)$("pimg").src=src;
  if(fit)fitView();
- renderMarks();renderList();zoneBar();
+ buildTools();renderMarks();renderList();zoneBar();
 }
 function fitView(){const pg=curPage();if(!pg)return;const v=$("view").getBoundingClientRect();const s=Math.min(v.width/pg.w,v.height/pg.h)*0.96;S.view={s,tx:(v.width-pg.w*s)/2,ty:(v.height-pg.h*s)/2};applyView()}
 function applyView(){const{s,tx,ty}=S.view;$("content").style.transform=`translate(${tx}px,${ty}px) scale(${s})`}
@@ -509,7 +559,7 @@ function markSvg(m,no,sel){
  const l=lg(m.type);const pts=m.pts||[];let g="";
  const sw=1.1;
  if(m.geom==="point"){const x=pts[0],y=pts[1];g+=`<circle cx="${x}" cy="${y}" r="1.6" fill="${l.c}"/>`}
- else if(m.geom==="area")g+=`<polygon points="${ptsStr(pts)}" fill="url(#p_${l.k})" stroke="${l.c}" stroke-width="${sw}" stroke-linejoin="round"/>`;
+ else if(m.geom==="area")g+=`<polygon points="${ptsStr(pts)}" fill="url(#p_${String(l.k).replace(/[^\w-]/g,"_")})" stroke="${l.c}" stroke-width="${sw}" stroke-linejoin="round"/>`;
  else g+=`<polyline points="${ptsStr(pts)}" fill="none" stroke="${l.c}" stroke-width="${sw*1.2}" stroke-linecap="round" stroke-linejoin="round" ${l.dash?`stroke-dasharray="${l.dash}"`:""}/>`;
  // 지시선 + 번호
  const[bx,by]=m.badge||[pts[0]+8,pts[1]-8];const anc=nearestPt(pts,bx,by);
@@ -521,7 +571,7 @@ function markSvg(m,no,sel){
 function nearestPt(pts,x,y){let best=[pts[0],pts[1]],bd=1e18;for(let i=0;i<pts.length;i+=2){const d=(pts[i]-x)**2+(pts[i+1]-y)**2;if(d<bd){bd=d;best=[pts[i],pts[i+1]]}}return best}
 function renderMarks(){
  const pg=curPage(),ov=$("ov");if(!pg){ov.innerHTML="";return}
- let h=`<defs>${legend().filter(l=>l.g==="area").map(l=>patternDef("p_"+l.k,l,4)).join("")}</defs>`;
+ let h=`<defs>${defsLegend().filter(l=>l.g==="area").map(l=>patternDef("p_"+String(l.k).replace(/[^\w-]/g,"_"),l,4)).join("")}</defs>`;
  const zm=S.mode==="zone";if(zm)h+=`<g opacity=".22" style="pointer-events:none">`;const nb=numbering(pg.id);nb.order.forEach(m=>h+=markSvg(m,nb.map[m.id]||"",m.id===S.selId));pageMemos(pg.id).forEach(m=>h+=memoSvg(m,m.id===S.selId));if(zm)h+="</g>";
  if(S.mode==="zone")h+=zonesSvg(pg);else h=h.replace("</defs>","</defs>"+zonesSvg(pg));
  h+=`<g id="live"></g>`;ov.innerHTML=h;
@@ -621,7 +671,7 @@ view.addEventListener("contextmenu",e=>e.preventDefault());
 ["gesturestart","gesturechange"].forEach(t=>document.addEventListener(t,e=>e.preventDefault()));
 const r1=n=>Math.round(n*10)/10;
 function drawLive(){const lv=$("live");if(!lv||!stroke)return;const l=scaleMode?{c:"#f59e0b"}:S.mode==="memo"?{c:S.memoColor,g:"line"}:lg(S.tool);
- if(!scaleMode&&!cropMode&&l.g==="area"&&stroke.pts.length>2&&isDiagonal(stroke.pts)){const a=stroke.pts[0],b=stroke.pts[stroke.pts.length-1];lv.innerHTML=`<rect x="${Math.min(a[0],b[0])}" y="${Math.min(a[1],b[1])}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="url(#p_${l.k})" stroke="${l.c}" stroke-width="1" opacity=".9"/>`;return}
+ if(!scaleMode&&!cropMode&&l.g==="area"&&stroke.pts.length>2&&isDiagonal(stroke.pts)){const a=stroke.pts[0],b=stroke.pts[stroke.pts.length-1];lv.innerHTML=`<rect x="${Math.min(a[0],b[0])}" y="${Math.min(a[1],b[1])}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="url(#p_${String(l.k).replace(/[^\w-]/g,"_")})" stroke="${l.c}" stroke-width="1" opacity=".9"/>`;return}
  if(cropMode||S.mode==="zone"){const a=stroke.pts[0],b=stroke.pts[stroke.pts.length-1];lv.innerHTML=`<rect x="${Math.min(a[0],b[0])}" y="${Math.min(a[1],b[1])}" width="${Math.abs(b[0]-a[0])}" height="${Math.abs(b[1]-a[1])}" fill="rgba(37,99,235,.12)" stroke="#2563eb" stroke-width="1" stroke-dasharray="3 2"/>`;return}
  lv.innerHTML=`<polyline points="${stroke.pts.map(p=>p.join(",")).join(" ")}" fill="none" stroke="${l.c}" stroke-width="${1.4/Math.max(0.5,S.view.s/2)}" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>`}
 function rdp(pts,eps){if(pts.length<3)return pts;let dmax=0,idx=0;const[a,b]=[pts[0],pts[pts.length-1]];const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1e-9;
@@ -658,7 +708,7 @@ async function finishStroke(st){
  const last=pts.length-2;const bx=r1(pts[last]+9),by=r1(pts[last+1]-9);
  const prev=JSON.parse(ls("ins.last")||"{}");
  const cen=centroid(pts);const zn=zoneAt(pg,cen[0],cen[1]);
- const m={id:uid(),page:pg.id,type:S.tool,geom,pts,badge:[bx,by],status:"신규",loc:zn?zn.name:(pg.member||prev.loc||""),desc:l.presets[0],span:pg.span||"",w:"",l:"",b:"",cnt:"1",photo:"",note:"",author:ls("ins.author")||"",createdAt:Date.now()};
+ const m={id:uid(),page:pg.id,type:S.tool,geom,pts,badge:[bx,by],status:"신규",loc:S.memberSel?S.memberSel.loc:(zn?zn.name:(pg.member||prev.loc||"")),desc:(S.toolDesc&&S.memberSel)?S.toolDesc:l.presets[0],span:pg.span||"",w:"",l:"",b:"",cnt:"1",photo:"",note:"",author:ls("ins.author")||"",createdAt:Date.now()};
  // 축척 있으면 자동 계산
  if(pg.scale&&geom!=="point"){const sc=pg.scale;
   if(geom==="line"){let L=0;for(let i=2;i<pts.length;i+=2)L+=Math.hypot(pts[i]-pts[i-2],pts[i+1]-pts[i-1]);m.l=String(r2(L/sc))}
@@ -686,8 +736,8 @@ function buildForm(){
    if(await confirmBox("기존 손상 삭제",`기존 ${cur.oldNo}번 손상을 목록에서 뺄까요? 변경내역 시트에 '삭제'로 기록되고, 나중에 다시 눌러 복원할 수 있어요.`)){closeM("mMark");await saveMark({...cur,deleted:true,updatedAt:Date.now()})}return}
  if(await confirmBox("손상 삭제",`${markNo(m)}번 손상을 삭제할까요?${m.origin==="existing"?" 기존 손상 목록에서 빠집니다.":" 뒤 신규 번호가 하나씩 당겨집니다."}`)){closeM("mMark");S.selId=null;await delMark(m.id)}};
 }
-function buildTypeSelect(){$("fType").innerHTML=legend().map(l=>`<option value="${l.k}">${esc(l.n)}</option>`).join("");
- $("fTypeGrid").innerHTML=`<svg width="0" height="0" style="position:absolute"><defs>${legend().filter(l=>l.g==="area").map(l=>patternDef("ip_"+l.k,l,3)).join("")}</defs></svg>`+legend().map(l=>`<button type="button" class="tool" data-k="${l.k}" style="flex-direction:row;gap:4px;border-color:var(--line);font-size:12.5px;padding:3px 8px 3px 3px">${legendIcon(l)}${esc(l.n)}</button>`).join("");
+function buildTypeSelect(){$("fType").innerHTML=defsLegend().map(l=>`<option value="${l.k}">${esc(l.n)}</option>`).join("");
+ $("fTypeGrid").innerHTML=`<svg width="0" height="0" style="position:absolute"><defs>${defsLegend().filter(l=>l.g==="area").map(l=>patternDef("ip_"+String(l.k).replace(/[^\w-]/g,"_"),l,3)).join("")}</defs></svg>`+defsLegend().map(l=>`<button type="button" class="tool" data-k="${l.k}" style="flex-direction:row;gap:4px;border-color:var(--line);font-size:12.5px;padding:3px 8px 3px 3px">${legendIcon(l)}${esc(l.n)}</button>`).join("");
  $("fTypeGrid").querySelectorAll("button").forEach(b=>b.onclick=()=>{$("fType").value=b.dataset.k;markTypeGrid();$("fType").onchange&&$("fType").onchange()});}
 function markTypeGrid(){$("fTypeGrid").querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.k===$("fType").value))}
 function refreshDesc(k){const set=new Set(lg(k).presets);S.marks.forEach(m=>{if(m.type===k&&m.desc)set.add(m.desc)});$("dlDesc").innerHTML=[...set].map(v=>`<option value="${esc(v)}">`).join("")}
@@ -897,7 +947,7 @@ function drawTableCanvas(ctx,k,box,cols,rows){const L=tableLayout(box,cols,rows)
  const colFs=cols.map((c,i)=>{let f=X(L.rh*0.62);rows.forEach(r=>{fit(r[i],X(L.cw[i]),f);f=Math.min(f,parseFloat(ctx.font))});return f});
  y=L.y0+L.titleH+L.headH;rows.forEach(r=>{if(y+L.rh>L.y0+L.H+0.01)return;let x=L.x0;r.forEach((v,i)=>{ctx.font=`${colFs[i]}px "Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif`;ctx.fillText(String(v??""),X(x+L.cw[i]/2),X(y+L.rh/2));x+=L.cw[i]});y+=L.rh});
  ctx.restore();return rows.length>Math.floor((L.H-L.titleH-L.headH)/L.rh)}
-function overlaySvg(pg,W,H){const nb=numbering(pg.id);let h=`<defs>${legend().filter(l=>l.g==="area").map(l=>patternDef("p_"+l.k,l,4)).join("")}</defs>`;
+function overlaySvg(pg,W,H){const nb=numbering(pg.id);let h=`<defs>${defsLegend().filter(l=>l.g==="area").map(l=>patternDef("p_"+String(l.k).replace(/[^\w-]/g,"_"),l,4)).join("")}</defs>`;
  nb.order.forEach(m=>{if(m.origin==="existing"){if(m.deleted)return;if(m.check==="보수됨"&&m.pts&&m.pts.length>=2)h+=repairMarkSvg(m.pts[0],m.pts[1]);const no=nb.map[m.id];if(no&&String(no)!==String(m.oldNo)&&m.pts&&m.pts.length>=2)h+=`<text x="${m.pts[0]+8}" y="${m.pts[1]-6}" font-size="6" fill="#1d4ed8" font-weight="700" font-family="Arial">→${no}</text>`;return}if(nb.map[m.id]&&m.pts&&m.pts.length>=2)h+=markSvg(m,nb.map[m.id],false)});
  pageMemos(pg.id).forEach(m=>h+=memoSvg(m,false));
  return`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${pg.w} ${pg.h}">${h}</svg>`}
@@ -1255,7 +1305,7 @@ function stdRefresh(){const v=stdVals();$("sdBridge").style.display=v.type==="br
 function openStd(){const p=P();if(!p){openProj();return}if(S.online&&!S.assets){toast("도면 추가는 편집 권한이 있는 사람만 할 수 있어요",4000);return}
  const ft=p.facType||"bridge";$("sdType").querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.t===ft));if(!$("sdTName").value)$("sdTName").value=p.name;closeM("mPages");stdRefresh();openM("mStd")}
 async function runStd(){const v=stdVals();const list=planStd(v);if(!list.length){toast("입력값을 확인하세요");return}const p=P();
- if(p.facType!==v.type)await saveProject({...p,facType:v.type});
+ if(p.facType!==v.type||(v.type==="bridge"&&p.bridgeForm!==v.form))await saveProject({...p,facType:v.type,...(v.type==="bridge"?{bridgeForm:v.form}:{})});
  closeM("mStd");let idx=sortedPages().length;const base=sortedPages().filter(pg=>/^\d+$/.test(pg.no||"")).reduce((a,pg)=>Math.max(a,+pg.no),0);let first=null;const nd=String(base+list.length).length<2?2:String(base+list.length).length;
  const norm=b=>[Math.round(b[0]/SHEET.w*1000),Math.round(b[1]/SHEET.h*1000),Math.round(b[2]/SHEET.w*1000),Math.round(b[3]/SHEET.h*1000)];
  try{for(let i=0;i<list.length;i++){const it=list[i];progress(`표준 망도 만드는 중 ${i+1}/${list.length}`,(i+1)/list.length);
