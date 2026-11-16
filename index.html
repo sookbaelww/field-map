@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#2563eb">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script>window.STANDALONE=true;window.APP_VERSION="202611161443";
+<script>window.STANDALONE=true;window.APP_VERSION="202611161504";
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 
 <script src="lib/pdf.min.js"></script>
@@ -114,7 +114,7 @@ table.dl tr{cursor:pointer}
     <div id="content"><img id="pimg" alt=""><svg id="ov" xmlns="http://www.w3.org/2000/svg"></svg></div>
     <div id="empty"></div>
     <div id="hint"></div>
-    <div id="eraseBar" style="position:absolute;left:50%;bottom:64px;transform:translateX(-50%);display:none;gap:8px;align-items:center;z-index:6;background:#111827;color:#fff;border-radius:12px;padding:6px 8px 6px 14px;font-size:14px;white-space:nowrap"><span id="eraseTxt"></span><button class="btn" id="eraseClr" style="padding:6px 10px">선택 해제</button><button class="btn" id="eraseDel" style="padding:6px 12px;background:#dc2626;border-color:#dc2626;color:#fff;font-weight:700">🗑 삭제</button></div>
+    <div id="eraseBar" style="position:absolute;left:50%;bottom:84px;transform:translateX(-50%);display:none;gap:8px;align-items:center;z-index:6;background:#111827;color:#fff;border-radius:12px;padding:6px 8px 6px 14px;font-size:14px;white-space:nowrap"><span id="eraseTxt"></span><button class="btn" id="eraseClr" style="padding:6px 10px">선택 해제</button><button class="btn" id="eraseDel" style="padding:6px 12px;background:#dc2626;border-color:#dc2626;color:#fff;font-weight:700">🗑 삭제</button></div>
     <div id="multiBar" style="position:absolute;left:50%;top:10px;transform:translateX(-50%);display:none;gap:8px;align-items:center;z-index:6;background:#111827;color:#fff;border-radius:12px;padding:6px 8px 6px 14px;font-size:14px"><span id="multiTxt"></span><button class="btn" id="multiUndo" style="padding:6px 10px">마지막 지우기</button><button class="btn" id="multiDone" style="padding:6px 12px;background:#fde047;border-color:#fde047;color:#111827;font-weight:700">완료</button></div>
     <div id="zoneBar" style="position:absolute;left:10px;top:10px;display:none;gap:6px;flex-wrap:wrap;z-index:5"><button class="btn" id="zBand">▤ 띠로 나누기</button><button class="btn" id="zBox">□ 작은 구역</button><button class="btn" id="zAi">🤖 부재 이름 읽기</button><button class="btn" id="zAiAll">🤖 전체 도면</button><button class="btn" id="zCopy">같은 부재 도면에 복사</button><button class="btn dng" id="zClear">구역 지우기</button><button class="btn pri" id="zDone">완료</button></div>
   </div>
