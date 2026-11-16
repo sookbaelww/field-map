@@ -3,12 +3,11 @@
  "iter": 100000,
  "users": [
   {
-   "salt": "26bd46601e25a9d3",
-   "h": "747bff9be82a75a9c8663264857342162cbab3c3a27d53dcd0067aff3583e7b5",
+   "salt": "a49f1dd40eef0752",
+   "h": "ee43d5e660940376896909e23e493af828541d24eda5ce9ae3dffbba9ba48c24",
    "active": true,
    "added": "2026-11-16T06:47:18.440452Z",
-   "id": "차륭",
-   "legacy": true
+   "id": "차륭"
   },
   {
    "salt": "60d2ab4ab72a450a",
