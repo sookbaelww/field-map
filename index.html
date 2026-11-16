@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#2563eb">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script>window.STANDALONE=true;window.APP_VERSION="202611161504";
+<script>window.STANDALONE=true;window.APP_VERSION="202611161528";
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 
 <script src="lib/pdf.min.js"></script>
@@ -114,8 +114,8 @@ table.dl tr{cursor:pointer}
     <div id="content"><img id="pimg" alt=""><svg id="ov" xmlns="http://www.w3.org/2000/svg"></svg></div>
     <div id="empty"></div>
     <div id="hint"></div>
-    <div id="eraseBar" style="position:absolute;left:50%;bottom:84px;transform:translateX(-50%);display:none;gap:8px;align-items:center;z-index:6;background:#111827;color:#fff;border-radius:12px;padding:6px 8px 6px 14px;font-size:14px;white-space:nowrap"><span id="eraseTxt"></span><button class="btn" id="eraseClr" style="padding:6px 10px">선택 해제</button><button class="btn" id="eraseDel" style="padding:6px 12px;background:#dc2626;border-color:#dc2626;color:#fff;font-weight:700">🗑 삭제</button></div>
-    <div id="multiBar" style="position:absolute;left:50%;top:10px;transform:translateX(-50%);display:none;gap:8px;align-items:center;z-index:6;background:#111827;color:#fff;border-radius:12px;padding:6px 8px 6px 14px;font-size:14px"><span id="multiTxt"></span><button class="btn" id="multiUndo" style="padding:6px 10px">마지막 지우기</button><button class="btn" id="multiDone" style="padding:6px 12px;background:#fde047;border-color:#fde047;color:#111827;font-weight:700">완료</button></div>
+    <div id="eraseBar" style="position:absolute;left:50%;bottom:84px;transform:translateX(-50%);display:none;gap:8px;align-items:center;z-index:6;background:#111827;color:#fff;border-radius:12px;padding:6px 8px 6px 14px;font-size:14px;white-space:nowrap"><span id="eraseTxt"></span><button class="btn" id="eraseClr" style="padding:6px 10px;background:#fff;color:#111827;border-color:#fff">선택 해제</button><button class="btn" id="eraseDel" style="padding:6px 12px;background:#dc2626;border-color:#dc2626;color:#fff;font-weight:700">🗑 삭제</button></div>
+    <div id="multiBar" style="position:absolute;left:50%;top:10px;transform:translateX(-50%);display:none;gap:8px;align-items:center;z-index:6;background:#111827;color:#fff;border-radius:12px;padding:6px 8px 6px 14px;font-size:14px"><span id="multiTxt"></span><button class="btn" id="multiUndo" style="padding:6px 10px;background:#fff;color:#111827;border-color:#fff">마지막 지우기</button><button class="btn" id="multiDone" style="padding:6px 12px;background:#fde047;border-color:#fde047;color:#111827;font-weight:700">완료</button></div>
     <div id="zoneBar" style="position:absolute;left:10px;top:10px;display:none;gap:6px;flex-wrap:wrap;z-index:5"><button class="btn" id="zBand">▤ 띠로 나누기</button><button class="btn" id="zBox">□ 작은 구역</button><button class="btn" id="zAi">🤖 부재 이름 읽기</button><button class="btn" id="zAiAll">🤖 전체 도면</button><button class="btn" id="zCopy">같은 부재 도면에 복사</button><button class="btn dng" id="zClear">구역 지우기</button><button class="btn pri" id="zDone">완료</button></div>
   </div>
   <div id="side">
@@ -884,9 +884,11 @@ $("bList").onclick=()=>{$("side").classList.toggle("hide");setTimeout(()=>{apply
 $("bExport").onclick=()=>{if(!S.pid){toast("시설물을 먼저 선택하세요");return}openM("mExport")};
 
 /* ───────── 내보내기 ───────── */
+function savedMsg(filename){const out=!/준비패키지|\.json$/.test(filename);const u=out?[...S.marks.values()].filter(m=>m.origin==="existing"&&!m.check&&!m.deleted&&S.pages.has(m.page)).length:0;
+ toast("저장했습니다: "+filename+(u?` · 미확인 기존 손상 ${u}건은 변화없음으로 처리했어요`:""),u?5000:2200)}
 async function saveFile(filename,data){
- if(S.dl){try{await S.dl.save({filename,data});toast("저장했습니다: "+filename);return true}catch(e){if(e.code==="declined")return false;toast("저장 실패: "+(e.message||e.code),5000);return false}}
- if(LOCAL){try{const b=data instanceof Blob?data:new Blob([data]);const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);toast("저장했습니다: "+filename);return true}catch(e){toast("저장 실패: "+(e.message||e),5000);return false}}
+ if(S.dl){try{await S.dl.save({filename,data});savedMsg(filename);return true}catch(e){if(e.code==="declined")return false;toast("저장 실패: "+(e.message||e.code),5000);return false}}
+ if(LOCAL){try{const b=data instanceof Blob?data:new Blob([data]);const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);savedMsg(filename);return true}catch(e){toast("저장 실패: "+(e.message||e),5000);return false}}
  toast("이 화면에서는 파일 저장을 쓸 수 없어요",4000);return false;
 }
 const stamp=()=>{const d=new Date();return`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`};
@@ -919,7 +921,7 @@ $("eXlsx").onclick=async()=>{
  const head=["도면번호","도면명"].concat(pc.cols,hasPhoto?[]:["사진번호"],["현장확인","조사자"]);
  const aoa=[head];const merges=[];
  ps.forEach(pg=>{const t=pageTable(pg,colsFor(pg).cols.join("|")===pc.cols.join("|")?null:pc);
-  t.items.forEach((m,i)=>aoa.push([pg.no||"",pg.name||""].concat(t.rows[i].map(cellVal),hasPhoto?[]:[m.photo||""],[m.origin==="existing"?(m.check||"미확인"):"신규조사",m.author||""])))});
+  t.items.forEach((m,i)=>aoa.push([pg.no||"",pg.name||""].concat(t.rows[i].map(cellVal),hasPhoto?[]:[m.photo||""],[m.origin==="existing"?(m.check||"변화없음"):"신규조사",m.author||""])))});
  const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet(aoa);
  ws["!cols"]=head.map((h,i)=>({wch:i<2?(i?22:9):Math.min(30,Math.max(6,String(h).length*1.6+2,...aoa.slice(1,200).map(r=>String(r[i]??"").length*1.3)))}));
  ws["!autofilter"]={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:aoa.length-1,c:head.length-1}})};
@@ -1006,7 +1008,7 @@ function buildDxf(pages){
   poly("FRAME",[0,0,pg.w,0,pg.w,pg.h,0,pg.h],true);
   g(0,"TEXT",8,"FRAME",10,f(ox),20,f(H+4),30,0,40,5,1,dxfStr(pg.name||"도면"));
   const nb=numbering(pg.id);nb.order.forEach(m=>{const no=nb.map[m.id];const ly=lay(m.type);const pts=m.pts||[];
-   if(m.origin==="existing"){if(pts.length>=2){g(0,"CIRCLE",8,"EXISTING",10,X(pts[0]),20,Y(pts[1]),30,0,40,f(7.5*MM));g(0,"TEXT",8,"EXISTING",10,X(pts[0]),20,Y(pts[1]+12),30,0,40,f(2*MM),1,dxfStr((m.check||"미확인")+(no&&no!==String(m.oldNo)?" →"+no:"")),72,1,73,2,11,X(pts[0]),21,Y(pts[1]+12),31,0)}return}
+   if(m.origin==="existing"){if(pts.length>=2){g(0,"CIRCLE",8,"EXISTING",10,X(pts[0]),20,Y(pts[1]),30,0,40,f(7.5*MM));g(0,"TEXT",8,"EXISTING",10,X(pts[0]),20,Y(pts[1]+12),30,0,40,f(2*MM),1,dxfStr((m.check||"변화없음")+(no&&no!==String(m.oldNo)?" →"+no:"")),72,1,73,2,11,X(pts[0]),21,Y(pts[1]+12),31,0)}return}
    if(!no||pts.length<2)return;
    if(m.geom==="point")g(0,"CIRCLE",8,ly,10,X(pts[0]),20,Y(pts[1]),30,0,40,f(0.8));else poly(ly,pts,m.geom==="area");
    (m.parts||[]).forEach(pp=>{if(pp.length===2)g(0,"CIRCLE",8,ly,10,X(pp[0]),20,Y(pp[1]),30,0,40,f(0.8));else poly(ly,pp,m.geom==="area")});
